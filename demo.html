@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RoomCraft Studio - 2D/3D Planner</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts - Outfit -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Three.js and OrbitControls CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.5);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(16, 185, 129, 0.5);
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen overflow-hidden flex flex-col">
+
+  <!-- TOP NAVBAR -->
+  <header class="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between z-40 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-slate-950 shadow-lg shadow-emerald-500/10">
+        RC
+      </div>
+      <div>
+        <h1 class="font-extrabold text-sm tracking-wide text-white uppercase leading-none">RoomCraft</h1>
+        <span class="text-slate-500 text-[10px] uppercase tracking-widest font-semibold block mt-0.5">Studio v1.0</span>
+      </div>
+    </div>
+
+    <!-- AI Prompt Layout Bar -->
+    <div class="flex-1 max-w-lg mx-6 flex items-center bg-slate-900/60 border border-slate-850 hover:border-slate-800 focus-within:border-brand-500/50 rounded-full px-4 py-1.5 transition-all">
+      <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400 mr-2 shrink-0 animate-pulse"></i>
+      <input 
+        id="aiPromptInput" 
+        type="text" 
+        placeholder="AI prompt: 'Scandinavian living room', 'Modern bedroom'..." 
+        class="bg-transparent text-xs w-full outline-none text-slate-200 placeholder-slate-500 font-medium"
+      />
+      <button 
+        onclick="generateAILayout()" 
+        class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider hover:text-emerald-300 ml-2"
+      >
+        Generate
+      </button>
+    </div>
+
+    <!-- Actions Control -->
+    <div class="flex items-center gap-4 text-xs font-medium">
+      <div class="flex border border-slate-850 bg-slate-900/50 rounded-lg p-0.5">
+        <button onclick="undo()" class="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition" title="Undo">
+          <i data-lucide="undo" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="redo()" class="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition" title="Redo">
+          <i data-lucide="redo" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-slate-500 uppercase font-semibold text-[10px] tracking-wider">Units</span>
+        <select id="unitsSelect" onchange="changeUnits()" class="bg-slate-900 border border-slate-850 rounded-lg px-2 py-1 text-slate-300 outline-none">
+          <option value="meters">Meters (m)</option>
+          <option value="feet">Feet (ft)</option>
+        </select>
+      </div>
+
+      <button onclick="exportProjectJSON()" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-850 rounded-lg transition">
+        Save JSON
+      </button>
+      <button onclick="exportEstimationPDF()" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-lg shadow-lg shadow-emerald-950/20 transition-all">
+        Export PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <div class="flex-1 flex flex-row overflow-hidden w-full relative">
+    
+    <!-- LEFT SIDEBAR: ASSETS & DESIGNERS -->
+    <aside class="w-80 border-r border-slate-800 bg-slate-950 flex flex-col z-30 shrink-0 select-none">
+      <!-- Tabs Selector -->
+      <div class="grid grid-cols-3 border-b border-slate-850 text-xs font-semibold">
+        <button id="tabBtnFurniture" onclick="switchLeftTab('furniture')" class="py-3 bg-slate-900 border-b-2 border-emerald-500 text-emerald-400 transition">
+          Catalog
+        </button>
+        <button id="tabBtnMaterials" onclick="switchLeftTab('materials')" class="py-3 hover:bg-slate-900/50 text-slate-400 transition">
+          Materials
+        </button>
+        <button id="tabBtnOpenings" onclick="switchLeftTab('openings')" class="py-3 hover:bg-slate-900/50 text-slate-400 transition">
+          Openings
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-5">
+        
+        <!-- FURNITURE CATALOG -->
+        <div id="leftTabFurniture" class="space-y-4">
+          <div class="flex flex-wrap gap-1.5 border-b border-slate-900 pb-3">
+            <button onclick="filterCatalog('living')" id="catBtn_living" class="text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-emerald-950 border-emerald-800 text-emerald-400 transition">Living</button>
+            <button onclick="filterCatalog('bedroom')" id="catBtn_bedroom" class="text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-slate-900 border-slate-850 text-slate-400 transition">Bedroom</button>
+            <button onclick="filterCatalog('office')" id="catBtn_office" class="text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-slate-900 border-slate-850 text-slate-400 transition">Office</button>
+            <button onclick="filterCatalog('plants')" id="catBtn_plants" class="text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-slate-900 border-slate-850 text-slate-400 transition">Plants</button>
+          </div>
+
+          <div id="catalogGrid" class="grid grid-cols-2 gap-2.5">
+            <!-- Dynamically generated items -->
+          </div>
+        </div>
+
+        <!-- MATERIALS & PAINTS -->
+        <div id="leftTabMaterials" class="hidden space-y-4">
+          <h3 class="text-xs text-slate-500 font-bold uppercase tracking-wider">Flooring Materials</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="selectFloorMaterial('light_oak_wood')" class="p-3 bg-slate-900 border border-slate-850 hover:border-emerald-500 rounded-xl flex flex-col items-center gap-2 transition">
+              <div class="w-7 h-7 rounded-full bg-[#D1A377] border border-slate-700"></div>
+              <span class="text-xs font-semibold">Oak Wood</span>
+            </button>
+            <button onclick="selectFloorMaterial('walnut_wood')" class="p-3 bg-slate-900 border border-slate-850 hover:border-emerald-500 rounded-xl flex flex-col items-center gap-2 transition">
+              <div class="w-7 h-7 rounded-full bg-[#5C4033] border border-slate-700"></div>
+              <span class="text-xs font-semibold">Walnut Wood</span>
+            </button>
+            <button onclick="selectFloorMaterial('concrete_gray')" class="p-3 bg-slate-900 border border-slate-850 hover:border-emerald-500 rounded-xl flex flex-col items-center gap-2 transition">
+              <div class="w-7 h-7 rounded-full bg-[#8A8A8A] border border-slate-700"></div>
+              <span class="text-xs font-semibold">Concrete</span>
+            </button>
+            <button onclick="selectFloorMaterial('gray_carpet')" class="p-3 bg-slate-900 border border-slate-850 hover:border-emerald-500 rounded-xl flex flex-col items-center gap-2 transition">
+              <div class="w-7 h-7 rounded-full bg-[#94A3B8] border border-slate-700"></div>
+              <span class="text-xs font-semibold">Grey Carpet</span>
+            </button>
+          </div>
+
+          <h3 class="text-xs text-slate-500 font-bold uppercase tracking-wider pt-4">Global Wall Paint</h3>
+          <div class="flex items-center gap-3 bg-slate-900/40 border border-slate-850 p-3 rounded-xl">
+            <input type="color" id="globalWallColor" oninput="changeWallColor(this.value)" value="#F3F4F6" class="w-9 h-9 rounded bg-transparent cursor-pointer" />
+            <div>
+              <span class="text-xs text-slate-400 font-medium">Select Wall Paint Color</span>
+              <span id="wallColorText" class="text-[10px] text-slate-600 block uppercase">#F3F4F6</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- OPENINGS (DOORS/WINDOWS) -->
+        <div id="leftTabOpenings" class="hidden space-y-4">
+          <h3 class="text-xs text-slate-500 font-bold uppercase tracking-wider">Wall Snapping Slots</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div onclick="addDoorToWall()" class="bg-slate-900 border border-slate-850 hover:border-brand-500 rounded-xl p-4 cursor-pointer text-center flex flex-col items-center gap-2 transition group">
+              <div class="w-10 h-10 border border-blue-500 bg-blue-950/20 rounded flex items-center justify-center font-bold text-blue-400 text-xs">D</div>
+              <span class="text-xs font-semibold text-white">Add Door</span>
+            </div>
+            <div onclick="addWindowToWall()" class="bg-slate-900 border border-slate-850 hover:border-brand-500 rounded-xl p-4 cursor-pointer text-center flex flex-col items-center gap-2 transition group">
+              <div class="w-10 h-10 border border-cyan-500 bg-cyan-950/20 rounded flex items-center justify-center font-bold text-cyan-400 text-xs">W</div>
+              <span class="text-xs font-semibold text-white">Add Window</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER SPLIT WORKSPACE -->
+    <main class="flex-1 flex flex-row overflow-hidden relative bg-slate-900">
+      
+      <!-- 2D EDITOR PANELS -->
+      <div id="panel2D" class="flex-1 h-full relative border-r border-slate-800/80 flex flex-col" style="width: 50%;">
+        <div class="absolute top-4 left-4 z-10 flex items-center gap-2">
+          <button onclick="toggleWallDrawing()" id="drawWallBtn" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-950/80 backdrop-blur border border-slate-800 text-slate-200 hover:text-white rounded-lg hover:border-slate-700 transition">
+            <i data-lucide="pencil" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span>Draw Wall</span>
+          </button>
+          <button onclick="clearAllWalls()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-950/80 backdrop-blur border border-slate-800 text-slate-400 hover:text-red-400 rounded-lg hover:border-slate-700 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Clear Layout</span>
+          </button>
+        </div>
+        <div class="absolute bottom-4 left-4 z-10 bg-slate-950/80 backdrop-blur border border-slate-850 px-3 py-1.5 rounded-lg text-[10px] text-slate-500 font-semibold uppercase tracking-wider select-none">
+          Left: 2D Floor Planner (Draw/Drag)
+        </div>
+        <!-- 2D SVG canvas container -->
+        <div id="svgContainer" class="w-full h-full cursor-crosshair overflow-hidden relative bg-[#0b0f19]">
+          <svg id="canvas2D" width="100%" height="100%" class="select-none">
+            <!-- Grid pattern -->
+            <defs>
+              <pattern id="canvasGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#canvasGrid)" />
+            <line x1="0" y1="300" x2="2000" y2="300" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+            <line x1="400" y1="0" x2="400" y2="2000" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+            
+            <g id="wallsGroup"></g>
+            <g id="openingsGroup"></g>
+            <g id="itemsGroup"></g>
+            <line id="previewWallLine" class="hidden" stroke="#F59E0B" stroke-width="10" stroke-dasharray="5,5" stroke-linecap="round" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- SPLIT RESIZER DRAG BAR -->
+      <div id="paneResizer" class="w-1.5 h-full bg-slate-800/80 hover:bg-emerald-500 hover:cursor-col-resize z-20 shrink-0 transition-colors"></div>
+
+      <!-- 3D PREVIEW PANEL -->
+      <div id="panel3D" class="flex-1 h-full relative" style="width: 50%;">
+        <div class="absolute bottom-4 right-4 z-10 bg-slate-950/80 backdrop-blur border border-slate-850 px-3 py-1.5 rounded-lg text-[10px] text-slate-500 font-semibold uppercase tracking-wider select-none">
+          Right: Real-Time 3D (Orbit Controls)
+        </div>
+        <div id="webglContainer" class="w-full h-full"></div>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: PROPERTIES INSPECTOR -->
+    <aside class="w-72 border-l border-slate-800 bg-slate-950 flex flex-col z-30 shrink-0">
+      <div class="p-4 border-b border-slate-850 flex items-center justify-between bg-slate-900/20">
+        <h3 class="font-bold text-xs uppercase tracking-widest text-emerald-400">Inspector</h3>
+        <button onclick="duplicateSelectedItem()" class="text-[10px] font-bold uppercase bg-slate-900 hover:bg-slate-800 px-2 py-1 rounded text-slate-400 hover:text-white transition">Duplicate</button>
+      </div>
+
+      <div id="inspectorContent" class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4 text-sm">
+        <!-- Will be dynamically populated depending on selection -->
+        <div class="h-full flex flex-col justify-center items-center text-center text-slate-500">
+          <i data-lucide="info" class="w-8 h-8 mb-2 text-slate-700"></i>
+          <p class="text-xs">No active selection</p>
+          <p class="text-[10px] text-slate-700 mt-1 max-w-[160px]">Click a furniture piece, wall, or window to customize dimensions</p>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- STATE MANAGEMENT / SYSTEM LOGIC -->
+  <script>
+    // State Store Mock
+    let appState = {
+      project: {
+        name: "My Modern Layout",
+        settings: {
+          units: "meters",
+          gridSnap: true,
+          gridSize: 0.5
+        },
+        scene: {
+          wall_color: "#e2e8f0",
+          floor_material: "light_oak_wood",
+          walls: [
+            { id: "wall_1", start: { x: -3.5, y: -2.5 }, end: { x: 3.5, y: -2.5 }, thickness: 0.2, height: 2.7 },
+            { id: "wall_2", start: { x: 3.5, y: -2.5 }, end: { x: 3.5, y: 2.5 }, thickness: 0.2, height: 2.7 },
+            { id: "wall_3", start: { x: 3.5, y: 2.5 }, end: { x: -3.5, y: 2.5 }, thickness: 0.2, height: 2.7 },
+            { id: "wall_4", start: { x: -3.5, y: 2.5 }, end: { x: -3.5, y: -2.5 }, thickness: 0.2, height: 2.7 }
+          ],
+          items: [
+            { id: "item_1", name: "3-Seater Comfort Sofa", category: "living", x: 0, y: 0, z: 1.0, rotation: 180, width: 2.1, height: 0.85, depth: 0.95, color: "#475569", material: "fabric", price: 890 },
+            { id: "item_2", name: "Minimalist Coffee Table", category: "living", x: 0, y: 0, z: -0.1, rotation: 0, width: 1.1, height: 0.45, depth: 0.6, color: "#D1A377", material: "wood", price: 210 },
+            { id: "item_3", name: "Oak Nightstand", category: "bedroom", x: -2.8, y: 0, z: -2.1, rotation: 0, width: 0.5, height: 0.5, depth: 0.45, color: "#8B5A2B", material: "wood", price: 115 },
+            { id: "item_4", name: "Floor Potted Plant", category: "plants", x: 2.8, y: 0, z: -2.0, rotation: 45, width: 0.6, height: 1.2, depth: 0.6, color: "#10B981", material: "plastic", price: 65 }
+          ],
+          openings: [
+            { id: "op_1", type: "door", wallId: "wall_3", distance: 1.5, width: 0.9, height: 2.1 },
+            { id: "op_2", type: "window", wallId: "wall_1", distance: 3.5, width: 1.5, height: 1.4 }
+          ]
+        }
+      },
+      selection: {
+        type: null, // "item", "wall", "opening"
+        id: null
+      },
+      history: [],
+      historyIndex: -1,
+      drawingWall: false,
+      drawingStartNode: null
+    };
+
+    // Pre-loaded furniture catalog lists
+    const CATALOG_DATA = [
+      { name: "3-Seater Comfort Sofa", category: "living", w: 2.1, h: 0.85, d: 0.95, color: "#475569", mat: "fabric", price: 890 },
+      { name: "L-shaped Sectional Sofa", category: "living", w: 2.8, h: 0.85, d: 2.0, color: "#1e293b", mat: "fabric", price: 1290 },
+      { name: "Minimalist Coffee Table", category: "living", w: 1.1, h: 0.45, d: 0.6, color: "#D1A377", mat: "wood", price: 210 },
+      { name: "Lounge Armchair", category: "living", w: 0.95, h: 0.8, d: 0.9, color: "#E2E8F0", mat: "fabric", price: 399 },
+      { name: "Media Lowboard Console", category: "living", w: 1.8, h: 0.5, d: 0.45, color: "#1E293B", mat: "wood", price: 279 },
+      { name: "Modern Stone Fireplace", category: "living", w: 1.4, h: 1.1, d: 0.45, color: "#cbd5e1", mat: "stone", price: 799 },
+      { name: "Bookshelf Wall Unit", category: "living", w: 1.2, h: 2.0, d: 0.35, color: "#1e293b", mat: "wood", price: 450 },
+      
+      { name: "King Size Bed", category: "bedroom", w: 1.9, h: 1.1, d: 2.1, color: "#E2E8F0", mat: "fabric", price: 950 },
+      { name: "Oak Nightstand", category: "bedroom", w: 0.5, h: 0.5, d: 0.45, color: "#8B5A2B", mat: "wood", price: 115 },
+      { name: "Tall Dresser Chest", category: "bedroom", w: 0.8, h: 1.0, d: 0.5, color: "#FFFFFF", mat: "wood", price: 349 },
+      { name: "Three-Door Wardrobe", category: "bedroom", w: 1.5, h: 2.1, d: 0.6, color: "#f3f4f6", mat: "wood", price: 550 },
+      { name: "Vanity Dressing Table", category: "bedroom", w: 1.0, h: 1.4, d: 0.45, color: "#fae8ff", mat: "wood", price: 320 },
+      { name: "Cozy Bedroom Armchair", category: "bedroom", w: 0.8, h: 0.85, d: 0.8, color: "#a7f3d0", mat: "fabric", price: 180 },
+      
+      { name: "Executive Wooden Desk", category: "office", w: 1.6, h: 0.75, d: 0.8, color: "#5C4033", mat: "wood", price: 380 },
+      { name: "Ergonomic Office Chair", category: "office", w: 0.65, h: 0.9, d: 0.65, color: "#111827", mat: "plastic", price: 250 },
+      { name: "Glass Showcase Rack", category: "office", w: 1.0, h: 1.9, d: 0.4, color: "#94A3B8", mat: "glass", price: 420 },
+      { name: "Conference Meeting Table", category: "office", w: 2.4, h: 0.75, d: 1.2, color: "#451a03", mat: "wood", price: 699 },
+      { name: "Metal Filing Cabinet", category: "office", w: 0.45, h: 1.2, d: 0.6, color: "#475569", mat: "metal", price: 149 },
+
+      { name: "Floor Potted Plant", category: "plants", w: 0.6, h: 1.2, d: 0.6, color: "#10B981", mat: "plastic", price: 65 },
+      { name: "Monstera Fig Tree", category: "plants", w: 0.5, h: 1.0, d: 0.5, color: "#059669", mat: "plastic", price: 45 },
+      { name: "Fiddle Leaf Fig Tree", category: "plants", w: 0.6, h: 1.6, d: 0.6, color: "#047857", mat: "plastic", price: 85 },
+      { name: "Succulent Planter Pot", category: "plants", w: 0.3, h: 0.3, d: 0.3, color: "#059669", mat: "ceramic", price: 20 },
+      { name: "Cozy Floor Area Rug", category: "plants", w: 3.0, h: 0.02, d: 2.0, color: "#e2e8f0", mat: "fabric", price: 150 }
+    ];
+
+    // Coordinate Conversion Math
+    const worldScale = 40; // 40 pixels = 1 meter
+    let origin2D = { x: 400, y: 300 }; // screen center
+
+    function updateCanvasOrigin() {
+      const container = document.getElementById("svgContainer");
+      if (container) {
+        origin2D.x = container.clientWidth / 2;
+        origin2D.y = container.clientHeight / 2;
+      }
+    }
+
+    function worldToScreen(wx, wy) {
+      return {
+        x: wx * worldScale + origin2D.x,
+        y: wy * worldScale + origin2D.y
+      };
+    }
+
+    function screenToWorld(sx, sy) {
+      const container = document.getElementById("canvas2D");
+      const rect = container.getBoundingClientRect();
+      return {
+        x: (sx - rect.left - origin2D.x) / worldScale,
+        y: (sy - rect.top - origin2D.y) / worldScale
+      };
+    }
+
+    function snapValue(val, step = 0.5) {
+      return Math.round(val / step) * step;
+    }
+
+    // Dynamic split-pane logic
+    const divider = document.getElementById("paneResizer");
+    const pane1 = document.getElementById("panel2D");
+    const pane2 = document.getElementById("panel3D");
+
+    let isResizing = false;
+
+    divider.addEventListener("mousedown", (e) => {
+      isResizing = true;
+      document.body.style.cursor = "col-resize";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isResizing) return;
+      const leftSidebarWidth = 320;
+      const containerWidth = window.innerWidth - leftSidebarWidth - 288; // total container space
+      const dragPosition = e.clientX - leftSidebarWidth;
+      
+      let percentage = (dragPosition / containerWidth) * 100;
+      percentage = Math.min(Math.max(percentage, 20), 80);
+
+      // Override flexible layout options to allow manual resizes
+      pane1.style.flex = "none";
+      pane2.style.flex = "none";
+      pane1.style.width = `${percentage}%`;
+      pane2.style.width = `${100 - percentage}%`;
+
+      // Recalculate 2D canvas origin and redraw
+      updateCanvasOrigin();
+      render2DPlanner();
+
+      // Trigger 3D resizing viewport
+      if (renderer && camera) {
+        const w = pane2.clientWidth;
+        const h = pane2.clientHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      isResizing = false;
+      document.body.style.cursor = "";
+    });
+
+    // 2D CANVAS RENDERING IMPLEMENTATION
+    const wallsGroup = document.getElementById("wallsGroup");
+    const openingsGroup = document.getElementById("openingsGroup");
+    const itemsGroup = document.getElementById("itemsGroup");
+    const previewLine = document.getElementById("previewWallLine");
+
+    function render2DPlanner() {
+      // Clear current SVGs
+      wallsGroup.innerHTML = "";
+      openingsGroup.innerHTML = "";
+      itemsGroup.innerHTML = "";
+
+      const scene = appState.project.scene;
+
+      // Draw Walls
+      scene.walls.forEach(wall => {
+        const s = worldToScreen(wall.start.x, wall.start.y);
+        const e = worldToScreen(wall.end.x, wall.end.y);
+        const isSelected = appState.selection.type === 'wall' && appState.selection.id === wall.id;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", s.x);
+        line.setAttribute("y1", s.y);
+        line.setAttribute("x2", e.x);
+        line.setAttribute("y2", e.y);
+        line.setAttribute("stroke", isSelected ? "#10b981" : "#cbd5e1");
+        line.setAttribute("stroke-width", wall.thickness * worldScale);
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("class", "hover:stroke-emerald-400 cursor-pointer transition");
+        line.onclick = (ev) => {
+          ev.stopPropagation();
+          selectElement('wall', wall.id);
+        };
+        wallsGroup.appendChild(line);
+
+        // Labels
+        const len = Math.sqrt(Math.pow(wall.end.x - wall.start.x, 2) + Math.pow(wall.end.y - wall.start.y, 2));
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", (s.x + e.x) / 2);
+        text.setAttribute("y", (s.y + e.y) / 2 - 10);
+        text.setAttribute("fill", "#64748b");
+        text.setAttribute("font-size", "10");
+        text.setAttribute("font-weight", "600");
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = `${len.toFixed(2)}m`;
+        wallsGroup.appendChild(text);
+      });
+
+      // Draw Openings
+      scene.openings.forEach(op => {
+        const wall = scene.walls.find(w => w.id === op.wallId);
+        if (!wall) return;
+
+        const dx = wall.end.x - wall.start.x;
+        const dy = wall.end.y - wall.start.y;
+        const wallLength = Math.sqrt(dx*dx + dy*dy);
+        if (wallLength === 0) return;
+
+        const ux = dx / wallLength;
+        const uy = dy / wallLength;
+        const wx = wall.start.x + ux * op.distance;
+        const wy = wall.start.y + uy * op.distance;
+
+        const screenPos = worldToScreen(wx, wy);
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const isSelected = appState.selection.type === 'opening' && appState.selection.id === op.id;
+
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", `translate(${screenPos.x}, ${screenPos.y}) rotate(${angle})`);
+        group.onclick = (ev) => {
+          ev.stopPropagation();
+          selectElement('opening', op.id);
+        };
+
+        // 1. Masking background rect to clear the wall line underneath
+        const mask = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        mask.setAttribute("x", -op.width * worldScale / 2);
+        mask.setAttribute("y", -wall.thickness * worldScale / 2 - 1);
+        mask.setAttribute("width", op.width * worldScale);
+        mask.setAttribute("height", wall.thickness * worldScale + 2);
+        mask.setAttribute("fill", "#0b0f19"); // canvas background color
+        group.appendChild(mask);
+
+        const w = op.width * worldScale;
+        const t = wall.thickness * worldScale;
+
+        if (op.type === "door") {
+          // 2. Door swing panel (leaf) opening outward (90 degrees)
+          // Line from left hinge (-w/2, 0) straight up to (-w/2, -w)
+          const doorLeaf = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          doorLeaf.setAttribute("x1", -w / 2);
+          doorLeaf.setAttribute("y1", 0);
+          doorLeaf.setAttribute("x2", -w / 2);
+          doorLeaf.setAttribute("y2", -w);
+          doorLeaf.setAttribute("stroke", isSelected ? "#ef4444" : "#e2e8f0");
+          doorLeaf.setAttribute("stroke-width", "2.5");
+          group.appendChild(doorLeaf);
+
+          // 3. Swing arc from (w/2, 0) swing-rounding to (-w/2, -w)
+          const doorArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          doorArc.setAttribute("d", `M ${w / 2} 0 A ${w} ${w} 0 0 0 ${-w / 2} ${-w}`);
+          doorArc.setAttribute("fill", "none");
+          doorArc.setAttribute("stroke", isSelected ? "#f87171" : "#475569");
+          doorArc.setAttribute("stroke-width", "1.5");
+          doorArc.setAttribute("stroke-dasharray", "3,3");
+          group.appendChild(doorArc);
+
+          // 4. Hinge blocks/frame stops
+          const frameL = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          frameL.setAttribute("x", -w / 2 - 2);
+          frameL.setAttribute("y", -t / 2);
+          frameL.setAttribute("width", "4");
+          frameL.setAttribute("height", t);
+          frameL.setAttribute("fill", isSelected ? "#ef4444" : "#64748b");
+          group.appendChild(frameL);
+
+          const frameR = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          frameR.setAttribute("x", w / 2 - 2);
+          frameR.setAttribute("y", -t / 2);
+          frameR.setAttribute("width", "4");
+          frameR.setAttribute("height", t);
+          frameR.setAttribute("fill", isSelected ? "#ef4444" : "#64748b");
+          group.appendChild(frameR);
+
+        } else if (op.type === "window") {
+          // 2. Window outer frame borders
+          const frameRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          frameRect.setAttribute("x", -w / 2);
+          frameRect.setAttribute("y", -t / 2);
+          frameRect.setAttribute("width", w);
+          frameRect.setAttribute("height", t);
+          frameRect.setAttribute("fill", "rgba(15, 23, 42, 0.8)");
+          frameRect.setAttribute("stroke", isSelected ? "#ef4444" : "#94a3b8");
+          frameRect.setAttribute("stroke-width", "1.5");
+          group.appendChild(frameRect);
+
+          // 3. Double glazing glass panes inside frame
+          const paneLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          paneLine.setAttribute("x1", -w / 2 + 3);
+          paneLine.setAttribute("y1", 0);
+          paneLine.setAttribute("x2", w / 2 - 3);
+          paneLine.setAttribute("y2", 0);
+          paneLine.setAttribute("stroke", isSelected ? "#ef4444" : "#38bdf8"); // glass blue
+          paneLine.setAttribute("stroke-width", "2");
+          group.appendChild(paneLine);
+        }
+
+        openingsGroup.appendChild(group);
+      });
+
+      // Draw Furniture Items
+      scene.items.forEach(item => {
+        const screenPos = worldToScreen(item.x, item.z);
+        const w = item.width * worldScale;
+        const d = item.depth * worldScale;
+        const isSelected = appState.selection.type === 'item' && appState.selection.id === item.id;
+
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", `translate(${screenPos.x}, ${screenPos.y}) rotate(${item.rotation})`);
+        group.setAttribute("class", "cursor-move");
+        
+        // Add dragging handlers
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        group.onmousedown = (ev) => {
+          if (appState.drawingWall) return;
+          ev.stopPropagation();
+          selectElement('item', item.id);
+          isDragging = true;
+          const currentWorld = screenToWorld(ev.clientX, ev.clientY);
+          dragOffset.x = currentWorld.x - item.x;
+          dragOffset.y = currentWorld.y - item.z;
+
+          const onMouseMove = (moveEv) => {
+            if (!isDragging) return;
+            const worldMove = screenToWorld(moveEv.clientX, moveEv.clientY);
+            let nx = worldMove.x - dragOffset.x;
+            let nz = worldMove.y - dragOffset.y;
+
+            if (appState.project.settings.gridSnap) {
+              nx = snapValue(nx, appState.project.settings.gridSize);
+              nz = snapValue(nz, appState.project.settings.gridSize);
+            }
+
+            item.x = nx;
+            item.z = nz;
+            
+            // Sync renders
+            render2DPlanner();
+            update3DScene();
+          };
+
+          const onMouseUp = () => {
+            isDragging = false;
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+            pushHistoryState();
+          };
+
+          window.addEventListener("mousemove", onMouseMove);
+          window.addEventListener("mouseup", onMouseUp);
+        };
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", -w / 2);
+        rect.setAttribute("y", -d / 2);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", d);
+        rect.setAttribute("fill", isSelected ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.08)");
+        rect.setAttribute("stroke", isSelected ? "#10b981" : "#64748b");
+        rect.setAttribute("stroke-width", "2");
+        rect.setAttribute("rx", "3");
+        group.appendChild(rect);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", "0");
+        text.setAttribute("y", "3");
+        text.setAttribute("fill", "#cbd5e1");
+        text.setAttribute("font-size", "8");
+        text.setAttribute("font-weight", "500");
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = item.name;
+        group.appendChild(text);
+
+        itemsGroup.appendChild(group);
+      });
+    }
+
+    // DRAW WALL INTERACTIVITY
+    const svg = document.getElementById("canvas2D");
+    svg.addEventListener("mousemove", (e) => {
+      if (!appState.drawingWall || !appState.drawingStartNode) return;
+      const rect = svg.getBoundingClientRect();
+      const currentWorld = screenToWorld(e.clientX, rect.top + e.clientY - rect.top);
+      
+      let snapX = currentWorld.x;
+      let snapY = currentWorld.y;
+      if (appState.project.settings.gridSnap) {
+        snapX = snapValue(snapX, appState.project.settings.gridSize);
+        snapY = snapValue(snapY, appState.project.settings.gridSize);
+      }
+
+      const s = worldToScreen(appState.drawingStartNode.x, appState.drawingStartNode.y);
+      const cur = worldToScreen(snapX, snapY);
+
+      previewLine.setAttribute("x1", s.x);
+      previewLine.setAttribute("y1", s.y);
+      previewLine.setAttribute("x2", cur.x);
+      previewLine.setAttribute("y2", cur.y);
+      previewLine.classList.remove("hidden");
+    });
+
+    svg.addEventListener("mousedown", (e) => {
+      if (!appState.drawingWall) return;
+      if (e.button !== 0) return; // Left click only
+
+      const rect = svg.getBoundingClientRect();
+      const clickWorld = screenToWorld(e.clientX, e.clientY);
+      let snapX = clickWorld.x;
+      let snapY = clickWorld.y;
+      if (appState.project.settings.gridSnap) {
+        snapX = snapValue(snapX, appState.project.settings.gridSize);
+        snapY = snapValue(snapY, appState.project.settings.gridSize);
+      }
+
+      if (!appState.drawingStartNode) {
+        // Start node of the wall segment
+        appState.drawingStartNode = { x: snapX, y: snapY };
+      } else {
+        // Finalize node
+        const endNode = { x: snapX, y: snapY };
+        // Don't add zero-length wall
+        if (appState.drawingStartNode.x !== endNode.x || appState.drawingStartNode.y !== endNode.y) {
+          const wallId = "wall_" + Math.random().toString(36).substr(2, 9);
+          appState.project.scene.walls.push({
+            id: wallId,
+            start: appState.drawingStartNode,
+            end: endNode,
+            thickness: 0.2,
+            height: 2.7
+          });
+          pushHistoryState();
+          
+          if (e.ctrlKey) {
+            appState.drawingStartNode = endNode;
+          } else {
+            appState.drawingStartNode = null;
+            appState.drawingWall = false;
+            document.getElementById("drawWallBtn").classList.remove("bg-amber-600");
+            previewLine.classList.add("hidden");
+          }
+          
+          render2DPlanner();
+          update3DScene();
+        }
+      }
+    });
+
+    function toggleWallDrawing() {
+      appState.drawingWall = !appState.drawingWall;
+      appState.drawingStartNode = null;
+      previewLine.classList.add("hidden");
+
+      const btn = document.getElementById("drawWallBtn");
+      if (appState.drawingWall) {
+        btn.classList.add("bg-amber-600");
+      } else {
+        btn.classList.remove("bg-amber-600");
+      }
+    }
+
+    function clearAllWalls() {
+      if (confirm("Are you sure you want to clear the entire layout?")) {
+        appState.project.scene.walls = [];
+        appState.project.scene.items = [];
+        appState.project.scene.openings = [];
+        appState.selection = { type: null, id: null };
+        pushHistoryState();
+        render2DPlanner();
+        update3DScene();
+        renderInspector();
+      }
+    }
+
+    // 3D PREVIEW THREE.JS ENGINE IMPLEMENTATION
+    let scene3D, camera, renderer, controls, floorMesh;
+    let threeWalls = [], threeItems = [], threeOpenings = [];
+
+    function init3DViewport() {
+      const container = document.getElementById("webglContainer");
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+
+      scene3D = new THREE.Scene();
+      scene3D.background = new THREE.Color(0x020617); // Slate 950
+
+      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+      camera.position.set(6, 7, 9);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(w, h);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      controls.minDistance = 2;
+      controls.maxDistance = 20;
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      scene3D.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.85);
+      dirLight.position.set(8, 12, 6);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      scene3D.add(dirLight);
+
+      // Floor grid mesh
+      const gridHelper = new THREE.GridHelper(30, 30, 0x475569, 0x1e293b);
+      gridHelper.position.y = -0.005;
+      scene3D.add(gridHelper);
+
+      // Base Floor Plane
+      const floorGeo = new THREE.PlaneGeometry(50, 50);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.9 });
+      floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.y = -0.01;
+      floorMesh.receiveShadow = true;
+      scene3D.add(floorMesh);
+
+      // Render Loop
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene3D, camera);
+      }
+      animate();
+
+      // Handle Resize
+      window.addEventListener("resize", () => {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        // Center the 2D canvas dynamically
+        updateCanvasOrigin();
+        render2DPlanner();
+      });
+    }
+
+    function update3DScene() {
+      // Clear old meshes
+      threeWalls.forEach(w => scene3D.remove(w));
+      threeItems.forEach(i => scene3D.remove(i));
+      threeOpenings.forEach(o => scene3D.remove(o));
+      
+      threeWalls = [];
+      threeItems = [];
+      threeOpenings = [];
+
+      const sceneData = appState.project.scene;
+
+      // Update floor material color dynamically
+      if (floorMesh) {
+        let floorColor = 0xe2e8f0; // default
+        if (sceneData.floor_material === "light_oak_wood") floorColor = 0xe5c29b;
+        else if (sceneData.floor_material === "walnut_wood") floorColor = 0x5c4033;
+        else if (sceneData.floor_material === "concrete_gray") floorColor = 0x8a8a8a;
+        else if (sceneData.floor_material === "gray_carpet") floorColor = 0x94a3b8;
+        
+        floorMesh.material.color.setHex(floorColor);
+      }
+
+      // Draw Walls
+      sceneData.walls.forEach(wall => {
+        const dx = wall.end.x - wall.start.x;
+        const dy = wall.end.y - wall.start.y;
+        const length = Math.sqrt(dx*dx + dy*dy);
+        if (length === 0) return;
+
+        const cx = (wall.start.x + wall.end.x) / 2;
+        const cz = (wall.start.y + wall.end.y) / 2;
+        const cy = wall.height / 2;
+        const angle = -Math.atan2(dy, dx);
+
+        const geo = new THREE.BoxGeometry(length, wall.height, wall.thickness);
+        const mat = new THREE.MeshStandardMaterial({ 
+          color: new THREE.Color(sceneData.wall_color), 
+          roughness: 0.8 
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(cx, cy, cz);
+        mesh.rotation.y = angle;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        scene3D.add(mesh);
+        threeWalls.push(mesh);
+      });
+
+      // Draw Openings (realistic door and window assets)
+      sceneData.openings.forEach(op => {
+        const wall = sceneData.walls.find(w => w.id === op.wallId);
+        if (!wall) return;
+
+        const dx = wall.end.x - wall.start.x;
+        const dy = wall.end.y - wall.start.y;
+        const wallLength = Math.sqrt(dx*dx + dy*dy);
+        if (wallLength === 0) return;
+
+        const ux = dx / wallLength;
+        const uy = dy / wallLength;
+        const wx = wall.start.x + ux * op.distance;
+        const wz = wall.start.y + uy * op.distance;
+        const angle = -Math.atan2(dy, dx);
+
+        const opGroup = new THREE.Group();
+        opGroup.position.set(wx, 0, wz);
+        opGroup.rotation.y = angle;
+
+        const isSelected = appState.selection.type === 'opening' && appState.selection.id === op.id;
+        const frameColor = isSelected ? 0xef4444 : 0x1e293b; // Red if selected, else Slate-800
+        const frameMat = new THREE.MeshStandardMaterial({ color: frameColor, roughness: 0.5 });
+
+        // Frame dimensions
+        const ft = 0.04; // frame thickness (4cm)
+        const fd = wall.thickness + 0.015; // frame depth (slightly wider than wall)
+
+        if (op.type === "door") {
+          // 1. Door Frame - Left Post
+          const postLGeo = new THREE.BoxGeometry(ft, op.height, fd);
+          const postL = new THREE.Mesh(postLGeo, frameMat);
+          postL.position.set(-op.width/2 + ft/2, op.height/2, 0);
+          opGroup.add(postL);
+
+          // 2. Door Frame - Right Post
+          const postR = new THREE.Mesh(postLGeo, frameMat);
+          postR.position.set(op.width/2 - ft/2, op.height/2, 0);
+          opGroup.add(postR);
+
+          // 3. Door Frame - Header
+          const headerGeo = new THREE.BoxGeometry(op.width, ft, fd);
+          const header = new THREE.Mesh(headerGeo, frameMat);
+          header.position.set(0, op.height - ft/2, 0);
+          opGroup.add(header);
+
+          // 4. Door Panel (Wood/Material Leaf) - Swung Open by 45 degrees
+          const doorW = op.width - ft * 2;
+          const doorH = op.height - ft;
+          const panelGeo = new THREE.BoxGeometry(doorW, doorH, 0.035); // 3.5cm panel
+          const panelMat = new THREE.MeshStandardMaterial({ 
+            color: isSelected ? 0xef4444 : 0x78350f, // Warm wood tone
+            roughness: 0.7 
+          });
+          const panelMesh = new THREE.Mesh(panelGeo, panelMat);
+          
+          // Pivot group to rotate door around left hinge
+          const pivot = new THREE.Group();
+          pivot.position.set(-op.width/2 + ft, 0, 0); // local position of hinge
+          pivot.rotation.y = -Math.PI / 4; // Swing open by 45 degrees
+          
+          panelMesh.position.set(doorW/2, doorH/2, 0); // offset panel center from pivot
+          pivot.add(panelMesh);
+
+          // 5. Door Handle (Spherical knob)
+          const knobGeo = new THREE.SphereGeometry(0.02, 16, 16);
+          const knobMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.1 });
+          const knob = new THREE.Mesh(knobGeo, knobMat);
+          knob.position.set(doorW - 0.06, doorH/2, 0.025); // side near edge
+          pivot.add(knob);
+
+          const knob2 = knob.clone();
+          knob2.position.z = -0.025;
+          pivot.add(knob2);
+
+          opGroup.add(pivot);
+
+        } else if (op.type === "window") {
+          // 1. Window Frame Box (full border)
+          // Left post
+          const postLGeo = new THREE.BoxGeometry(ft, op.height, fd);
+          const postL = new THREE.Mesh(postLGeo, frameMat);
+          postL.position.set(-op.width/2 + ft/2, op.height/2, 0);
+          opGroup.add(postL);
+
+          // Right post
+          const postR = new THREE.Mesh(postLGeo, frameMat);
+          postR.position.set(op.width/2 - ft/2, op.height/2, 0);
+          opGroup.add(postR);
+
+          // Top frame
+          const topGeo = new THREE.BoxGeometry(op.width, ft, fd);
+          const topFrame = new THREE.Mesh(topGeo, frameMat);
+          topFrame.position.set(0, op.height - ft/2, 0);
+          opGroup.add(topFrame);
+
+          // Bottom frame (sill)
+          const bottomFrame = new THREE.Mesh(topGeo, frameMat);
+          bottomFrame.position.set(0, ft/2, 0);
+          opGroup.add(bottomFrame);
+
+          // 2. Glass Pane
+          const glassW = op.width - ft * 2;
+          const glassH = op.height - ft * 2;
+          const glassGeo = new THREE.BoxGeometry(glassW, glassH, 0.01);
+          const glassMat = new THREE.MeshStandardMaterial({
+            color: 0xbae6fd, // sky blue tint
+            transparent: true,
+            opacity: 0.4,
+            roughness: 0.1,
+            metalness: 0.9
+          });
+          const glass = new THREE.Mesh(glassGeo, glassMat);
+          glass.position.set(0, op.height/2, 0);
+          opGroup.add(glass);
+
+          // 3. Middle Muntin divider
+          const muntinGeo = new THREE.BoxGeometry(0.015, glassH, fd - 0.01);
+          const muntin = new THREE.Mesh(muntinGeo, frameMat);
+          muntin.position.set(0, op.height/2, 0);
+          opGroup.add(muntin);
+        }
+
+        scene3D.add(opGroup);
+        threeOpenings.push(opGroup);
+      });
+
+      // Draw Furniture Items
+      sceneData.items.forEach(item => {
+        const rotRad = (item.rotation * Math.PI) / 180;
+        const group = new THREE.Group();
+        group.position.set(item.x, item.y + item.height/2, item.z);
+        group.rotation.y = rotRad;
+
+        // Custom meshes based on category
+        let geom;
+        if (item.category === "plants") {
+          geom = new THREE.CylinderGeometry(item.width/2, item.width/2, item.height, 16);
+        } else {
+          geom = new THREE.BoxGeometry(item.width, item.height, item.depth);
+        }
+
+        const isSelected = appState.selection.type === 'item' && appState.selection.id === item.id;
+        const mat = new THREE.MeshStandardMaterial({ 
+          color: new THREE.Color(item.color),
+          roughness: item.material === 'wood' ? 0.6 : 0.8,
+          metalness: item.material === 'metal' ? 0.7 : 0.1
+        });
+        
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+
+        // Selection Highlight
+        if (isSelected) {
+          const wireGeo = new THREE.BoxGeometry(item.width + 0.05, item.height + 0.05, item.depth + 0.05);
+          const wireMat = new THREE.MeshBasicMaterial({ color: 0x10b981, wireframe: true });
+          const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+          group.add(wireMesh);
+        }
+
+        scene3D.add(group);
+        threeItems.push(group);
+      });
+    }
+
+    // SELECTION & PROPERTIES PANEL CONTROLS
+    function selectElement(type, id) {
+      appState.selection.type = type;
+      appState.selection.id = id;
+      
+      // Update highlights
+      render2DPlanner();
+      update3DScene();
+      renderInspector();
+    }
+
+    function renderInspector() {
+      const container = document.getElementById("inspectorContent");
+      const { type, id } = appState.selection;
+
+      if (!type || !id) {
+        container.innerHTML = `
+          <div class="h-full flex flex-col justify-center items-center text-center text-slate-500 py-12">
+            <i data-lucide="info" class="w-8 h-8 mb-2 text-slate-700"></i>
+            <p class="text-xs">No active selection</p>
+            <p class="text-[10px] text-slate-700 mt-1 max-w-[160px]">Click a furniture piece, wall, or window to customize dimensions</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const scene = appState.project.scene;
+      
+      if (type === 'item') {
+        const item = scene.items.find(i => i.id === id);
+        if (!item) return;
+
+        container.innerHTML = `
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Object Name</label>
+            <input type="text" value="${item.name}" oninput="updateSelectedField('name', this.value)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Position X (m)</label>
+              <input type="number" step="0.1" value="${item.x.toFixed(2)}" oninput="updateSelectedField('x', parseFloat(this.value) || 0)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Position Z (m)</label>
+              <input type="number" step="0.1" value="${item.z.toFixed(2)}" oninput="updateSelectedField('z', parseFloat(this.value) || 0)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Elevation (m)</label>
+              <input type="number" step="0.1" value="${item.y.toFixed(2)}" oninput="updateSelectedField('y', parseFloat(this.value) || 0)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Rotation (°)</label>
+              <input type="number" step="15" value="${item.rotation}" oninput="updateSelectedField('rotation', parseInt(this.value) || 0)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+            </div>
+          </div>
+
+          <div class="border-t border-slate-900 pt-3">
+            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Dimensions (m)</span>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <span class="text-[8px] text-slate-600 block uppercase font-bold">Width</span>
+                <input type="number" step="0.05" value="${item.width.toFixed(2)}" oninput="updateSelectedField('width', Math.max(0.1, parseFloat(this.value) || 0.1))" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-white" />
+              </div>
+              <div>
+                <span class="text-[8px] text-slate-600 block uppercase font-bold">Height</span>
+                <input type="number" step="0.05" value="${item.height.toFixed(2)}" oninput="updateSelectedField('height', Math.max(0.1, parseFloat(this.value) || 0.1))" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-white" />
+              </div>
+              <div>
+                <span class="text-[8px] text-slate-600 block uppercase font-bold">Depth</span>
+                <input type="number" step="0.05" value="${item.depth.toFixed(2)}" oninput="updateSelectedField('depth', Math.max(0.1, parseFloat(this.value) || 0.1))" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[11px] text-white" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Finish Style</label>
+            <select onchange="updateSelectedField('material', this.value)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white">
+              <option value="fabric" ${item.material === 'fabric' ? 'selected' : ''}>Fabric</option>
+              <option value="wood" ${item.material === 'wood' ? 'selected' : ''}>Wood</option>
+              <option value="metal" ${item.material === 'metal' ? 'selected' : ''}>Metal</option>
+              <option value="glass" ${item.material === 'glass' ? 'selected' : ''}>Glass</option>
+              <option value="plastic" ${item.material === 'plastic' ? 'selected' : ''}>Plastic</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Accent Color</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="color" value="${item.color}" oninput="updateSelectedField('color', this.value)" class="w-8 h-8 rounded bg-transparent border border-slate-800 cursor-pointer" />
+              <input type="text" value="${item.color}" oninput="updateSelectedField('color', this.value)" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white flex-1" />
+            </div>
+          </div>
+
+          <div class="border-t border-slate-900 pt-4">
+            <button onclick="deleteSelectedItem()" class="w-full py-2 bg-red-950/40 hover:bg-red-900/60 border border-red-900/40 text-red-200 text-xs font-bold uppercase tracking-wider rounded-lg transition">
+              Delete Object
+            </button>
+          </div>
+        `;
+      } else if (type === 'wall') {
+        const wall = scene.walls.find(w => w.id === id);
+        if (!wall) return;
+
+        const dx = wall.end.x - wall.start.x;
+        const dy = wall.end.y - wall.start.y;
+        const currentLength = Math.sqrt(dx*dx + dy*dy);
+
+        container.innerHTML = `
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wall Length (m)</label>
+            <input type="number" step="0.1" value="${currentLength.toFixed(2)}" oninput="updateWallLength(parseFloat(this.value) || 1.0)" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wall Thickness (m)</label>
+            <input type="number" step="0.05" value="${wall.thickness.toFixed(2)}" oninput="updateSelectedField('thickness', Math.max(0.05, parseFloat(this.value) || 0.1))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wall Height (m)</label>
+            <input type="number" step="0.1" value="${wall.height.toFixed(2)}" oninput="updateSelectedField('height', Math.max(0.5, parseFloat(this.value) || 2.4))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div class="border-t border-slate-900 pt-4">
+            <button onclick="deleteSelectedItem()" class="w-full py-2 bg-red-950/40 hover:bg-red-900/60 border border-red-900/40 text-red-200 text-xs font-bold uppercase tracking-wider rounded-lg transition">
+              Delete Wall
+            </button>
+          </div>
+        `;
+      } else if (type === 'opening') {
+        const op = scene.openings.find(o => o.id === id);
+        if (!op) return;
+
+        container.innerHTML = `
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Opening Type</label>
+            <span class="block text-emerald-400 capitalize font-bold text-xs mt-0.5">${op.type}</span>
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Width (m)</label>
+            <input type="number" step="0.05" value="${op.width.toFixed(2)}" oninput="updateSelectedField('width', Math.max(0.3, parseFloat(this.value) || 0.3))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Height (m)</label>
+            <input type="number" step="0.05" value="${op.height.toFixed(2)}" oninput="updateSelectedField('height', Math.max(0.3, parseFloat(this.value) || 0.3))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Distance from Wall Node 1 (m)</label>
+            <input type="number" step="0.1" value="${op.distance.toFixed(2)}" oninput="updateSelectedField('distance', Math.max(0, parseFloat(this.value) || 0))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div class="border-t border-slate-900 pt-4">
+            <button onclick="deleteSelectedItem()" class="w-full py-2 bg-red-950/40 hover:bg-red-900/60 border border-red-900/40 text-red-200 text-xs font-bold uppercase tracking-wider rounded-lg transition">
+              Delete Opening
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function updateWallLength(newLen) {
+      const { type, id } = appState.selection;
+      if (type !== 'wall') return;
+      const wall = appState.project.scene.walls.find(w => w.id === id);
+      if (!wall) return;
+
+      const dx = wall.end.x - wall.start.x;
+      const dy = wall.end.y - wall.start.y;
+      const currentLength = Math.sqrt(dx*dx + dy*dy);
+      if (currentLength === 0) return;
+
+      const ux = dx / currentLength;
+      const uy = dy / currentLength;
+
+      wall.end.x = wall.start.x + ux * newLen;
+      wall.end.y = wall.start.y + uy * newLen;
+
+      render2DPlanner();
+      update3DScene();
+    }
+
+    function updateSelectedField(field, value) {
+      const { type, id } = appState.selection;
+      const scene = appState.project.scene;
+
+      if (type === 'item') {
+        const item = scene.items.find(i => i.id === id);
+        if (item) {
+          item[field] = value;
+        }
+      } else if (type === 'wall') {
+        const wall = scene.walls.find(w => w.id === id);
+        if (wall) {
+          wall[field] = value;
+        }
+      } else if (type === 'opening') {
+        const op = scene.openings.find(o => o.id === id);
+        if (op) {
+          op[field] = value;
+        }
+      }
+
+      render2DPlanner();
+      update3DScene();
+    }
+
+    function deleteSelectedItem() {
+      const { type, id } = appState.selection;
+      const scene = appState.project.scene;
+
+      if (type === 'item') {
+        scene.items = scene.items.filter(i => i.id !== id);
+      } else if (type === 'wall') {
+        scene.walls = scene.walls.filter(w => w.id !== id);
+        scene.openings = scene.openings.filter(o => o.wallId !== id);
+      } else if (type === 'opening') {
+        scene.openings = scene.openings.filter(o => o.id !== id);
+      }
+
+      appState.selection = { type: null, id: null };
+      pushHistoryState();
+      render2DPlanner();
+      update3DScene();
+      renderInspector();
+    }
+
+    function duplicateSelectedItem() {
+      const { type, id } = appState.selection;
+      const scene = appState.project.scene;
+
+      if (type === 'item') {
+        const item = scene.items.find(i => i.id === id);
+        if (item) {
+          const newItem = {
+            ...item,
+            id: "item_" + Math.random().toString(36).substr(2, 9),
+            x: item.x + 0.5,
+            z: item.z + 0.5
+          };
+          scene.items.push(newItem);
+          pushHistoryState();
+          render2DPlanner();
+          update3DScene();
+          selectElement('item', newItem.id);
+        }
+      }
+    }
+
+    // LEFT SIDEBAR DRAWER CONTROLS
+    function switchLeftTab(tab) {
+      document.getElementById("leftTabFurniture").classList.add("hidden");
+      document.getElementById("leftTabMaterials").classList.add("hidden");
+      document.getElementById("leftTabOpenings").classList.add("hidden");
+
+      document.getElementById("tabBtnFurniture").className = "py-3 text-slate-400 hover:bg-slate-900/50 transition";
+      document.getElementById("tabBtnMaterials").className = "py-3 text-slate-400 hover:bg-slate-900/50 transition";
+      document.getElementById("tabBtnOpenings").className = "py-3 text-slate-400 hover:bg-slate-900/50 transition";
+
+      if (tab === 'furniture') {
+        document.getElementById("leftTabFurniture").classList.remove("hidden");
+        document.getElementById("tabBtnFurniture").className = "py-3 bg-slate-900 border-b-2 border-emerald-500 text-emerald-400 font-semibold transition";
+      } else if (tab === 'materials') {
+        document.getElementById("leftTabMaterials").classList.remove("hidden");
+        document.getElementById("tabBtnMaterials").className = "py-3 bg-slate-900 border-b-2 border-emerald-500 text-emerald-400 font-semibold transition";
+      } else if (tab === 'openings') {
+        document.getElementById("leftTabOpenings").classList.remove("hidden");
+        document.getElementById("tabBtnOpenings").className = "py-3 bg-slate-900 border-b-2 border-emerald-500 text-emerald-400 font-semibold transition";
+      }
+    }
+
+    function filterCatalog(category) {
+      const btns = ["living", "bedroom", "office", "plants"];
+      btns.forEach(b => {
+        const el = document.getElementById("catBtn_" + b);
+        el.className = "text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-slate-900 border-slate-850 text-slate-400 transition";
+      });
+
+      document.getElementById("catBtn_" + category).className = "text-[9px] font-bold uppercase px-2.5 py-1 rounded-full border bg-emerald-950 border-emerald-800 text-emerald-400 transition";
+
+      const grid = document.getElementById("catalogGrid");
+      grid.innerHTML = "";
+
+      const filtered = CATALOG_DATA.filter(item => item.category === category);
+      filtered.forEach(asset => {
+        const box = document.createElement("div");
+        box.className = "bg-slate-900 hover:bg-slate-850 border border-slate-850 rounded-xl p-3 cursor-pointer transition flex flex-col justify-between items-center text-center shadow-lg group";
+        box.onclick = () => instantiateItem(asset);
+
+        box.innerHTML = `
+          <div class="w-10 h-10 border border-slate-700 bg-slate-800/20 rounded flex items-center justify-center my-2 text-slate-500 font-mono text-[9px] group-hover:border-brand-500 transition-all uppercase">3D</div>
+          <span class="text-xs font-semibold text-white truncate w-full">${asset.name}</span>
+          <span class="text-[9px] font-bold text-slate-500 mt-1">$${asset.price}</span>
+        `;
+        grid.appendChild(box);
+      });
+    }
+
+    function instantiateItem(asset) {
+      const id = "item_" + Math.random().toString(36).substr(2, 9);
+      appState.project.scene.items.push({
+        id,
+        name: asset.name,
+        category: asset.category,
+        x: 0,
+        y: 0,
+        z: 0,
+        rotation: 0,
+        width: asset.w,
+        height: asset.h,
+        depth: asset.d,
+        color: asset.color,
+        material: asset.mat,
+        price: asset.price
+      });
+      pushHistoryState();
+      render2DPlanner();
+      update3DScene();
+      selectElement('item', id);
+    }
+
+    function selectFloorMaterial(key) {
+      appState.project.scene.floor_material = key;
+      pushHistoryState();
+      update3DScene();
+    }
+
+    function changeWallColor(val) {
+      appState.project.scene.wall_color = val;
+      document.getElementById("wallColorText").textContent = val;
+      pushHistoryState();
+      update3DScene();
+    }
+
+    function addDoorToWall() {
+      let targetWall = null;
+      if (appState.selection.type === 'wall' && appState.selection.id) {
+        targetWall = appState.project.scene.walls.find(w => w.id === appState.selection.id);
+      }
+      
+      if (!targetWall) {
+        if (appState.project.scene.walls.length === 1) {
+          targetWall = appState.project.scene.walls[0];
+        } else if (appState.project.scene.walls.length > 1) {
+          alert("Please select a wall in the 2D Floor Planner first (click on a wall line so it highlights green), then click Add Door.");
+          return;
+        } else {
+          alert("Draw a wall first using the Draw Wall tool!");
+          return;
+        }
+      }
+
+      const id = "op_" + Math.random().toString(36).substr(2, 9);
+      appState.project.scene.openings.push({
+        id,
+        type: "door",
+        wallId: targetWall.id,
+        distance: 1.5,
+        width: 0.9,
+        height: 2.1
+      });
+      pushHistoryState();
+      render2DPlanner();
+      update3DScene();
+      selectElement('opening', id);
+    }
+
+    function addWindowToWall() {
+      let targetWall = null;
+      if (appState.selection.type === 'wall' && appState.selection.id) {
+        targetWall = appState.project.scene.walls.find(w => w.id === appState.selection.id);
+      }
+      
+      if (!targetWall) {
+        if (appState.project.scene.walls.length === 1) {
+          targetWall = appState.project.scene.walls[0];
+        } else if (appState.project.scene.walls.length > 1) {
+          alert("Please select a wall in the 2D Floor Planner first (click on a wall line so it highlights green), then click Add Window.");
+          return;
+        } else {
+          alert("Draw a wall first using the Draw Wall tool!");
+          return;
+        }
+      }
+
+      const id = "op_" + Math.random().toString(36).substr(2, 9);
+      appState.project.scene.openings.push({
+        id,
+        type: "window",
+        wallId: targetWall.id,
+        distance: 2.0,
+        width: 1.4,
+        height: 1.3
+      });
+      pushHistoryState();
+      render2DPlanner();
+      update3DScene();
+      selectElement('opening', id);
+    }
+
+    // AI LAYOUT SUGGESTION RULES ENGINE
+    function generateAILayout() {
+      const val = document.getElementById("aiPromptInput").value;
+      if (!val.trim()) return;
+
+      const pLower = val.toLowerCase();
+      let style = "Scandinavian";
+      let wallColor = "#F3F4F6";
+      let floorMaterial = "light_oak_wood";
+
+      if (pLower.includes("mid-century") || pLower.includes("retro") || pLower.includes("walnut")) {
+        style = "Mid-Century Modern";
+        wallColor = "#E5E7EB";
+        floorMaterial = "walnut_wood";
+      } else if (pLower.includes("industrial") || pLower.includes("loft") || pLower.includes("concrete")) {
+        style = "Industrial";
+        wallColor = "#78350F";
+        floorMaterial = "concrete_gray";
+      } else if (pLower.includes("office") || pLower.includes("work")) {
+        style = "Office Workspace";
+        wallColor = "#FFFFFF";
+        floorMaterial = "gray_carpet";
+      } else if (pLower.includes("bedroom") || pLower.includes("sleep")) {
+        style = "Cozy Bedroom";
+        wallColor = "#F0F9FF";
+        floorMaterial = "light_oak_wood";
+      }
+
+      // Generate layout
+      const walls = [
+        { id: "wall_1", start: { x: -3.5, y: -2.5 }, end: { x: 3.5, y: -2.5 }, thickness: 0.2, height: 2.7 },
+        { id: "wall_2", start: { x: 3.5, y: -2.5 }, end: { x: 3.5, y: 2.5 }, thickness: 0.2, height: 2.7 },
+        { id: "wall_3", start: { x: 3.5, y: 2.5 }, end: { x: -3.5, y: 2.5 }, thickness: 0.2, height: 2.7 },
+        { id: "wall_4", start: { x: -3.5, y: 2.5 }, end: { x: -3.5, y: -2.5 }, thickness: 0.2, height: 2.7 }
+      ];
+
+      const items = [];
+      if (style.includes("Bedroom")) {
+        items.push({ id: "ai_item_1", name: "King Size Bed", category: "bedroom", x: 0, y: 0, z: -1.2, rotation: 0, width: 1.9, height: 1.1, depth: 2.1, color: "#E5E7EB", material: "fabric", price: 950 });
+        items.push({ id: "ai_item_2", name: "Oak Nightstand", category: "bedroom", x: -1.3, y: 0, z: -2.0, rotation: 0, width: 0.5, height: 0.5, depth: 0.45, color: "#8B5A2B", material: "wood", price: 115 });
+        items.push({ id: "ai_item_3", name: "Tall Dresser Chest", category: "bedroom", x: 2.5, y: 0, z: 0, rotation: 270, width: 0.8, height: 1.0, depth: 0.5, color: "#FFFFFF", material: "wood", price: 349 });
+      } else if (style.includes("Office")) {
+        items.push({ id: "ai_item_1", name: "Executive Wooden Desk", category: "office", x: 0, y: 0, z: -0.4, rotation: 0, width: 1.6, height: 0.75, depth: 0.8, color: "#5C4033", material: "wood", price: 380 });
+        items.push({ id: "ai_item_2", name: "Ergonomic Office Chair", category: "office", x: 0, y: 0, z: -1.1, rotation: 0, width: 0.65, height: 0.9, depth: 0.65, color: "#111827", material: "plastic", price: 250 });
+        items.push({ id: "ai_item_3", name: "Floor Potted Plant", category: "plants", x: 2.8, y: 0, z: -2.0, rotation: 45, width: 0.6, height: 1.2, depth: 0.6, color: "#10B981", material: "plastic", price: 65 });
+      } else {
+        // Living room template
+        items.push({ id: "ai_item_1", name: "3-Seater Comfort Sofa", category: "living", x: 0, y: 0, z: 1.1, rotation: 180, width: 2.1, height: 0.85, depth: 0.95, color: "#475569", material: "fabric", price: 890 });
+        items.push({ id: "ai_item_2", name: "Minimalist Coffee Table", category: "living", x: 0, y: 0, z: 0, rotation: 0, width: 1.1, height: 0.45, depth: 0.6, color: "#D1A377", material: "wood", price: 210 });
+        items.push({ id: "ai_item_3", name: "Floor Potted Plant", category: "plants", x: 2.8, y: 0, z: -2.0, rotation: 45, width: 0.6, height: 1.2, depth: 0.6, color: "#10B981", material: "plastic", price: 65 });
+      }
+
+      appState.project.scene.walls = walls;
+      appState.project.scene.items = items;
+      appState.project.scene.floor_material = floorMaterial;
+      appState.project.scene.wall_color = wallColor;
+      
+      document.getElementById("globalWallColor").value = wallColor;
+      document.getElementById("wallColorText").textContent = wallColor;
+
+      pushHistoryState();
+      render2DPlanner();
+      update3DScene();
+      selectElement(null, null);
+
+      alert(`AI Arranged Space: Created a beautiful ${style} layout!`);
+    }
+
+    // STATE HISTORY UNDO / REDO
+    function pushHistoryState() {
+      // Slice future if we did undos
+      appState.history = appState.history.slice(0, appState.historyIndex + 1);
+      
+      const snapshot = JSON.stringify(appState.project);
+      appState.history.push(snapshot);
+      appState.historyIndex = appState.history.length - 1;
+    }
+
+    function undo() {
+      if (appState.historyIndex > 0) {
+        appState.historyIndex--;
+        const snapshot = JSON.parse(appState.history[appState.historyIndex]);
+        appState.project = snapshot;
+        appState.selection = { type: null, id: null };
+        
+        render2DPlanner();
+        update3DScene();
+        renderInspector();
+      }
+    }
+
+    function redo() {
+      if (appState.historyIndex < appState.history.length - 1) {
+        appState.historyIndex++;
+        const snapshot = JSON.parse(appState.history[appState.historyIndex]);
+        appState.project = snapshot;
+        appState.selection = { type: null, id: null };
+        
+        render2DPlanner();
+        update3DScene();
+        renderInspector();
+      }
+    }
+
+    function changeUnits() {
+      appState.project.settings.units = document.getElementById("unitsSelect").value;
+      render2DPlanner();
+      renderInspector();
+    }
+
+    // EXPORT HANDLERS
+    function exportProjectJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState.project, null, 2));
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute("href", dataStr);
+      dlAnchorElem.setAttribute("download", "roomcraft_project.json");
+      dlAnchorElem.click();
+    }
+
+    function exportEstimationPDF() {
+      // 1. Capture 3D WebGL Canvas
+      renderer.render(scene3D, camera);
+      const img3D = renderer.domElement.toDataURL("image/png");
+
+      // 2. Capture 2D SVG Canvas
+      const svgElement = document.getElementById("canvas2D");
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
+      
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = svgElement.clientWidth || 800;
+        canvas.height = svgElement.clientHeight || 600;
+        const context = canvas.getContext("2d");
+        
+        // Draw dark background color of 2D canvas
+        context.fillStyle = "#0b0f19";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.drawImage(image, 0, 0);
+        const img2D = canvas.toDataURL("image/png");
+        
+        // Open Print Window
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+          <html>
+          <head>
+            <title>RoomCraft Studio - Design Export</title>
+            <script src="https://cdn.tailwindcss.com"><\/script>
+          </head>
+          <body class="bg-slate-950 text-slate-100 p-8">
+            <div class="max-w-4xl mx-auto border border-slate-850 p-8 rounded-2xl bg-slate-900/60 shadow-2xl">
+              <div class="flex justify-between items-center border-b border-slate-800 pb-6 mb-6">
+                <div>
+                  <h1 class="text-2xl font-extrabold tracking-wider text-emerald-400 uppercase">RoomCraft Design Captures</h1>
+                  <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest font-semibold">Project Name: ${appState.project.name}</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-slate-500 font-bold uppercase block">Date: 2026-07-15</span>
+                  <span class="text-xs text-emerald-400 font-extrabold uppercase mt-1 block">Status: Exported Layout</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-6">
+                <!-- 2D Floor Plan Frame -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col justify-between">
+                  <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-3">2D Floor Plan Blueprint</span>
+                  <img src="${img2D}" class="w-full rounded-lg border border-slate-800 shadow-md" alt="2D Floor Plan" />
+                </div>
+
+                <!-- 3D Perspective Frame -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col justify-between">
+                  <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-3">3D Perspective Render</span>
+                  <img src="${img3D}" class="w-full rounded-lg border border-slate-800 shadow-md" alt="3D Perspective" />
+                </div>
+              </div>
+
+              <div class="border-t border-slate-800 pt-6 mt-8 flex justify-between items-center text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+                <span>System-Generated Capture Report</span>
+                <span>RoomCraft Studio</span>
+              </div>
+            </div>
+            <script>
+              window.onload = () => {
+                setTimeout(() => { window.print(); }, 500);
+              };
+            <\/script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        URL.revokeObjectURL(blobURL);
+      };
+      image.src = blobURL;
+    }
+
+    // App Startup / Initialization
+    window.onload = () => {
+      // Load SVG Canvas Icons
+      lucide.createIcons();
+
+      // Calculate initial origin based on current container size
+      updateCanvasOrigin();
+
+      // Set first catalog tab to living
+      filterCatalog('living');
+
+      // Initialize 2D
+      render2DPlanner();
+
+      // Initialize 3D Viewport
+      init3DViewport();
+      update3DScene();
+
+      // Initial history point
+      appState.history.push(JSON.stringify(appState.project));
+      appState.historyIndex = 0;
+    };
+  </script>
+</body>
+</html>
