@@ -73,7 +73,7 @@ function FurnitureItem3D({ item, isSelected }: {
       {isSelected && (
         <mesh>
           <boxGeometry args={[item.width + 0.05, item.height + 0.05, item.depth + 0.05]} />
-          <meshBasicMaterial color="#10B981" wireframe />
+          <meshBasicMaterial color="#0ea5e9" wireframe />
         </mesh>
       )}
     </group>

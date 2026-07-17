@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ar-builders-backend
+    env: docker
+    dockerContext: backend
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        placeholder: "Insert your Supabase Connection String (Transaction Pooler or Session Pooler)"

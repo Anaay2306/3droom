@@ -94,19 +94,19 @@ export function AssetLibrary() {
       <div className="flex flex-row border-b border-slate-800 text-xs text-center font-semibold">
         <button
           onClick={() => setActiveTab("furniture")}
-          className={`flex-1 py-3 transition ${activeTab === "furniture" ? "bg-slate-900 border-b-2 border-emerald-500 text-emerald-400" : "hover:bg-slate-900/50"}`}
+          className={`flex-1 py-3 transition ${activeTab === "furniture" ? "bg-slate-900 border-b-2 border-sky-500 text-sky-400" : "hover:bg-slate-900/50"}`}
         >
           Furniture
         </button>
         <button
           onClick={() => setActiveTab("materials")}
-          className={`flex-1 py-3 transition ${activeTab === "materials" ? "bg-slate-900 border-b-2 border-emerald-500 text-emerald-400" : "hover:bg-slate-900/50"}`}
+          className={`flex-1 py-3 transition ${activeTab === "materials" ? "bg-slate-900 border-b-2 border-sky-500 text-sky-400" : "hover:bg-slate-900/50"}`}
         >
           Materials
         </button>
         <button
           onClick={() => setActiveTab("openings")}
-          className={`flex-1 py-3 transition ${activeTab === "openings" ? "bg-slate-900 border-b-2 border-emerald-500 text-emerald-400" : "hover:bg-slate-900/50"}`}
+          className={`flex-1 py-3 transition ${activeTab === "openings" ? "bg-slate-900 border-b-2 border-sky-500 text-sky-400" : "hover:bg-slate-900/50"}`}
         >
           Openings
         </button>
@@ -121,7 +121,7 @@ export function AssetLibrary() {
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={`text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border transition ${activeCategory === cat ? "bg-emerald-950 border-emerald-800 text-emerald-400" : "bg-slate-900 border-slate-800 text-slate-400"}`}
+                  className={`text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border transition ${activeCategory === cat ? "bg-sky-950 border-sky-850 text-sky-400" : "bg-slate-900 border-slate-800 text-slate-400"}`}
                 >
                   {cat}
                 </button>
@@ -137,7 +137,7 @@ export function AssetLibrary() {
                   className="bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg p-2 cursor-pointer transition flex flex-col justify-between items-center text-center shadow-md group"
                 >
                   {/* Miniature Box Preview Mock */}
-                  <div className="w-10 h-10 border border-slate-700 bg-slate-800/40 rounded flex items-center justify-center my-2 text-slate-500 font-mono text-[9px] group-hover:border-emerald-500 transition">
+                  <div className="w-10 h-10 border border-slate-700 bg-slate-800/40 rounded flex items-center justify-center my-2 text-slate-500 font-mono text-[9px] group-hover:border-sky-500 transition">
                     3D
                   </div>
                   <span className="text-xs font-semibold text-white truncate w-full">{asset.name}</span>
@@ -163,7 +163,7 @@ export function AssetLibrary() {
                   <div
                     key={mat.key}
                     onClick={() => handleSelectMaterial(mat.key)}
-                    className={`border rounded-lg p-2.5 cursor-pointer transition flex flex-row items-center gap-2 ${isActive ? "bg-emerald-950/40 border-emerald-600" : "bg-slate-900 border-slate-800 hover:bg-slate-850"}`}
+                    className={`border rounded-lg p-2.5 cursor-pointer transition flex flex-row items-center gap-2 ${isActive ? "bg-sky-950/30 border-sky-600" : "bg-slate-900 border-slate-800 hover:bg-slate-850"}`}
                   >
                     <div className="w-5 h-5 rounded-full border border-slate-700" style={{ backgroundColor: mat.hex }} />
                     <span className="text-xs font-semibold text-white">{mat.name}</span>
@@ -190,7 +190,7 @@ export function AssetLibrary() {
                         scene: { ...project.scene, wall_finish: finish.key as any }
                       });
                     }}
-                    className={`text-xs font-semibold border rounded-lg py-2 transition ${isActive ? "bg-emerald-950/40 border-emerald-600 text-emerald-400" : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850"}`}
+                    className={`text-xs font-semibold border rounded-lg py-2 transition ${isActive ? "bg-sky-950/30 border-sky-600 text-sky-400" : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850"}`}
                   >
                     {finish.name}
                   </button>

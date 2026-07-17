@@ -138,10 +138,10 @@ export function Editor2D() {
             <g key={wall.id} onClick={(ev) => { ev.stopPropagation(); selectWall(wall.id); }}>
               <line 
                 x1={s.x} y1={s.y} x2={e.x} y2={e.y} 
-                stroke={isSelected ? "#10B981" : "#E5E7EB"} 
+                stroke={isSelected ? "#0ea5e9" : "#E5E7EB"} 
                 strokeWidth={wall.thickness * 50 * zoom} 
                 strokeLinecap="round"
-                className="transition-colors duration-150 hover:stroke-emerald-400 cursor-pointer"
+                className="transition-colors duration-150 hover:stroke-sky-400 cursor-pointer"
               />
               {/* Length label */}
               <text 
@@ -177,8 +177,8 @@ export function Editor2D() {
                 y={-d / 2}
                 width={w}
                 height={d}
-                fill={isSelected ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.15)"}
-                stroke={isSelected ? "#10B981" : "#9CA3AF"}
+                fill={isSelected ? "rgba(14, 165, 233, 0.2)" : "rgba(255, 255, 255, 0.15)"}
+                stroke={isSelected ? "#0ea5e9" : "#9CA3AF"}
                 strokeWidth="1.5"
                 rx="2"
               />

@@ -1,141 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "../store/useStore";
 import { Unit } from "../types";
 
 export function Navbar() {
-  const { project, undo, redo, updateSettings, setProject } = useStore();
+  const { 
+    project, 
+    undo, 
+    redo, 
+    updateSettings,
+    projectsList,
+    isLoading,
+    fetchProjects,
+    loadProject,
+    saveProjectToDb,
+    createProjectInDb,
+    generateAILayoutViaAPI
+  } = useStore();
+  
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Load project list from DB on mount
+  useEffect(() => {
+    fetchProjects();
+  }, []);
 
   const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateSettings({ units: e.target.value as Unit });
   };
 
-  // Triggers the rules-based AI Arrangement layout generator locally
+  // Triggers backend AI Layout Generator
   const handleAIGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiPrompt.trim()) return;
     
     setIsGenerating(true);
+    // Standard default dimensions for generated rooms
+    const defaultDimensions = { width: 6.0, length: 5.0, height: 2.8 };
     
-    // Simulate short server delay
-    setTimeout(() => {
-      // Import the dynamic AIService logic from the backend service logic mapped to JS
-      const promptLower = aiPrompt.toLowerCase();
-      let style = "Scandinavian";
-      let wallColor = "#F3F4F6";
-      let floorMaterial = "light_oak_wood";
-      
-      if (promptLower.includes("mid-century") || promptLower.includes("retro")) {
-        style = "Mid-Century Modern";
-        wallColor = "#E5E7EB";
-        floorMaterial = "walnut_wood";
-      } else if (promptLower.includes("industrial") || promptLower.includes("loft")) {
-        style = "Industrial";
-        wallColor = "#78350F"; // concrete/brick raw tone
-        floorMaterial = "concrete_gray";
-      } else if (promptLower.includes("office") || promptLower.includes("work")) {
-        style = "Office";
-        wallColor = "#FFFFFF";
-        floorMaterial = "gray_carpet";
-      } else if (promptLower.includes("bedroom") || promptLower.includes("sleep")) {
-        style = "Bedroom";
-        wallColor = "#F0F9FF";
-        floorMaterial = "light_oak_wood";
-      }
-
-      // Generate standard bounding walls
-      const walls = [
-        { id: "w1", start: { x: -3, y: -2.5 }, end: { x: 3, y: -2.5 }, thickness: 0.2, height: 2.8 },
-        { id: "w2", start: { x: 3, y: -2.5 }, end: { x: 3, y: 2.5 }, thickness: 0.2, height: 2.8 },
-        { id: "w3", start: { x: 3, y: 2.5 }, end: { x: -3, y: 2.5 }, thickness: 0.2, height: 2.8 },
-        { id: "w4", start: { x: -3, y: 2.5 }, end: { x: -3, y: -2.5 }, thickness: 0.2, height: 2.8 }
-      ];
-
-      // Standardize positions based on style
-      const items = [];
-      if (style === "Bedroom") {
-        items.push({
-          id: "bed-ai",
-          catalogId: "bed_1",
-          name: "King Size Bed",
-          category: "bedroom",
-          x: 0.0, y: 0.0, z: -1.4,
-          rotation: 0, width: 1.9, height: 1.1, depth: 2.1,
-          color: "#E5E7EB", material: "fabric"
-        });
-        items.push({
-          id: "ns-l-ai",
-          catalogId: "nightstand",
-          name: "Oak Nightstand",
-          category: "bedroom",
-          x: -1.3, y: 0.0, z: -2.0,
-          rotation: 0, width: 0.5, height: 0.5, depth: 0.4,
-          color: "#D1A377", material: "wood"
-        });
-      } else if (style === "Office") {
-        items.push({
-          id: "desk-ai",
-          catalogId: "desk_1",
-          name: "Executive Wooden Desk",
-          category: "office",
-          x: 0.0, y: 0.0, z: -0.5,
-          rotation: 0, width: 1.6, height: 0.75, depth: 0.8,
-          color: "#8B5A2B", material: "wood"
-        });
-        items.push({
-          id: "chair-ai",
-          catalogId: "chair_1",
-          name: "Ergonomic Mesh Chair",
-          category: "office",
-          x: 0.0, y: 0.0, z: -1.2,
-          rotation: 0, width: 0.65, height: 0.9, depth: 0.65,
-          color: "#111827", material: "plastic"
-        });
-      } else {
-        // Living room default setup
-        items.push({
-          id: "sofa-ai",
-          catalogId: "sofa_1",
-          name: "3-Seater Comfort Sofa",
-          category: "living",
-          x: 0.0, y: 0.0, z: 1.2,
-          rotation: 180, width: 2.2, height: 0.85, depth: 0.95,
-          color: "#4B5563", material: "fabric"
-        });
-        items.push({
-          id: "ct-ai",
-          catalogId: "coffee_table_1",
-          name: "Minimalist Coffee Table",
-          category: "living",
-          x: 0.0, y: 0.0, z: 0.0,
-          rotation: 0, width: 1.1, height: 0.4, depth: 0.6,
-          color: "#D1A377", material: "wood"
-        });
-      }
-
-      setProject({
-        ...project,
-        scene: {
-          ...project.scene,
-          wall_color: wallColor,
-          floor_material: floorMaterial,
-          walls,
-          items,
-          openings: [
-            { id: "door-ai", type: "door", wallId: "w3", distance: 1.5, width: 0.9, height: 2.1, style: "single" }
-          ]
-        }
-      });
-      setIsGenerating(false);
-      setAiPrompt("");
-    }, 1500);
+    await generateAILayoutViaAPI(aiPrompt, defaultDimensions);
+    setIsGenerating(false);
+    setAiPrompt("");
   };
 
   const handleExportPDF = () => {
-    // Basic mock PDF export triggered locally
     alert(
       `Generating PDF Report...\n\n` +
       `Project: ${project.name}\n` +
@@ -147,43 +57,68 @@ export function Navbar() {
     );
   };
 
-  const handleSave = () => {
-    const jsonStr = JSON.stringify(project, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${project.name.toLowerCase().replace(/ /g, "_")}_project.json`;
-    a.click();
+  const handleCreateNew = async () => {
+    const name = prompt("Enter new project name:", "A&R Custom Design");
+    if (name && name.trim()) {
+      await createProjectInDb(name.trim());
+    }
   };
 
   return (
     <div className="w-full h-16 bg-slate-950 border-b border-slate-800 px-6 flex flex-row items-center justify-between text-slate-100 shadow-lg select-none">
       {/* Brand Logo & Title */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-slate-950 shadow-inner">
-          RC
+        <img 
+          src="/logo.jpg" 
+          alt="A&R Contractors & Builders Logo" 
+          className="w-10 h-10 object-contain rounded bg-white p-0.5 border border-slate-700 shadow-md shadow-sky-500/10" 
+        />
+        <div className="flex flex-col">
+          <span className="font-extrabold text-[13px] tracking-wide text-white uppercase leading-none">A&R Group</span>
+          <span className="text-slate-400 text-[9px] uppercase tracking-wider font-semibold mt-0.5">Contractors & Builders</span>
         </div>
-        <div>
-          <span className="font-extrabold text-sm tracking-wide text-white uppercase">RoomCraft</span>
-          <span className="text-slate-500 text-[10px] block -mt-1 uppercase tracking-widest font-semibold">Studio</span>
-        </div>
+      </div>
+
+      {/* Database Project Selection & Creation */}
+      <div className="flex items-center gap-2">
+        <select
+          value={project.id}
+          onChange={(e) => loadProject(e.target.value)}
+          className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none"
+        >
+          <option value={project.id}>{project.name} (Current)</option>
+          {projectsList
+            .filter((p) => p.id !== project.id)
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+        </select>
+        <button
+          onClick={handleCreateNew}
+          className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-sky-400 border border-slate-800 rounded uppercase tracking-wider"
+          title="Create brand new database project"
+        >
+          + New
+        </button>
       </div>
 
       {/* AI Assistant Quick Prompt Tool */}
       <form onSubmit={handleAIGenerate} className="flex-1 max-w-md mx-6 flex flex-row items-center bg-slate-900 border border-slate-800 rounded-full px-3.5 py-1">
+        <span className="w-2 h-2 rounded-full bg-sky-400 mr-2 animate-pulse" />
         <input
           type="text"
-          placeholder="AI Prompt: 'Scandinavian living room'..."
+          placeholder="AI Prompt: 'Scandinavian living room' or 'Modern bedroom'..."
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
-          disabled={isGenerating}
+          disabled={isGenerating || isLoading}
           className="flex-1 bg-transparent text-xs text-slate-200 outline-none border-none placeholder-slate-500 font-semibold"
         />
         <button
           type="submit"
-          disabled={isGenerating}
-          className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide hover:text-emerald-300 disabled:text-slate-500 ml-2"
+          disabled={isGenerating || isLoading}
+          className="text-[10px] font-bold text-sky-400 uppercase tracking-wide hover:text-sky-300 disabled:text-slate-500 ml-2"
         >
           {isGenerating ? "Arranging..." : "Generate"}
         </button>
@@ -195,15 +130,15 @@ export function Navbar() {
         <div className="flex flex-row items-center border border-slate-900 bg-slate-900/40 rounded-lg p-0.5">
           <button 
             onClick={undo}
-            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded"
-            title="Undo (Ctrl+Z)"
+            className="px-2 py-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs"
+            title="Undo"
           >
             ↺
           </button>
           <button 
             onClick={redo}
-            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded"
-            title="Redo (Ctrl+Y)"
+            className="px-2 py-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs"
+            title="Redo"
           >
             ↻
           </button>
@@ -223,16 +158,19 @@ export function Navbar() {
           </select>
         </div>
 
-        {/* Save & Export */}
+        {/* Database Save */}
         <button
-          onClick={handleSave}
-          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-xs font-bold text-slate-200 border border-slate-800 rounded-lg transition"
+          onClick={saveProjectToDb}
+          disabled={isLoading}
+          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-xs font-bold text-sky-400 border border-slate-800 rounded-lg transition disabled:text-slate-500"
         >
-          Save
+          {isLoading ? "Saving..." : "Save to DB"}
         </button>
+        
+        {/* PDF Export */}
         <button
           onClick={handleExportPDF}
-          className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-xs font-bold text-slate-950 rounded-lg shadow-md transition"
+          className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 text-xs font-bold text-slate-950 rounded-lg shadow-md transition"
         >
           Export PDF
         </button>

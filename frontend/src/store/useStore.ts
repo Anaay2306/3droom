@@ -4,6 +4,8 @@ import {
   LightFixture, ProjectSettings, Point2D 
 } from "../types";
 
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 interface HistoryEntry {
   scene: ProjectState["scene"];
   settings: ProjectState["settings"];
@@ -17,6 +19,19 @@ interface RoomCraftStore {
   history: HistoryEntry[];
   historyIndex: number;
   
+  // API State
+  isLoading: boolean;
+  apiError: string | null;
+  projectsList: { id: string; name: string; description?: string }[];
+  
+  // API Actions
+  fetchProjects: () => Promise<void>;
+  loadProject: (id: string) => Promise<void>;
+  saveProjectToDb: () => Promise<void>;
+  createProjectInDb: (name: string, description?: string) => Promise<void>;
+  deleteProjectFromDb: (id: string) => Promise<void>;
+  generateAILayoutViaAPI: (prompt: string, dimensions: { width: number; length: number; height: number }) => Promise<void>;
+
   // Project Actions
   setProject: (proj: ProjectState) => void;
   updateSettings: (settings: Partial<ProjectSettings>) => void;
@@ -60,7 +75,7 @@ const initialScene = {
   openings: [] as RoomOpening[],
   lights: [
     { id: "ambient", type: "ambient", color: "#FFFFFF", intensity: 0.7, position: { x: 0, y: 3, z: 0 }, castShadows: false },
-    { id: "sunlight", type: "directional", color: "#FFFBEB", intensity: 1.0, position: { x: 5, y: 10, z: 5 }, castShadows: True }
+    { id: "sunlight", type: "directional", color: "#FFFBEB", intensity: 1.0, position: { x: 5, y: 10, z: 5 }, castShadows: true }
   ] as LightFixture[]
 };
 
@@ -74,8 +89,8 @@ const initialSettings = {
 
 export const useStore = create<RoomCraftStore>((set, get) => ({
   project: {
-    id: "project-1",
-    name: "New Roomcraft Design",
+    id: "3c7b37d4-8d48-43e9-a3b0-0cb29ffeb8f2", // Default loaded match
+    name: "A&R Space Design Project",
     settings: initialSettings,
     scene: initialScene
   },
@@ -84,7 +99,241 @@ export const useStore = create<RoomCraftStore>((set, get) => ({
   selectedOpeningId: null,
   history: [{ scene: { ...initialScene }, settings: { ...initialSettings } }],
   historyIndex: 0,
+  
+  isLoading: false,
+  apiError: null,
+  projectsList: [],
 
+  // API implementations
+  fetchProjects: async () => {
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/projects`);
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      const data = await res.json();
+      set({ 
+        projectsList: data.map((p: any) => ({ id: p.id, name: p.name, description: p.description })),
+        isLoading: false 
+      });
+    } catch (err: any) {
+      set({ apiError: err.message || "Failed fetching projects", isLoading: false });
+    }
+  },
+
+  loadProject: async (id: string) => {
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${id}`);
+      if (!res.ok) throw new Error("Failed to load project details");
+      const data = await res.json();
+      const mappedProject: ProjectState = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        settings: data.settings,
+        scene: data.scene_data
+      };
+      set({ 
+        project: mappedProject, 
+        selectedItemId: null, 
+        selectedWallId: null, 
+        selectedOpeningId: null,
+        history: [{ scene: { ...mappedProject.scene }, settings: { ...mappedProject.settings } }],
+        historyIndex: 0,
+        isLoading: false 
+      });
+    } catch (err: any) {
+      set({ apiError: err.message || "Failed loading project", isLoading: false });
+    }
+  },
+
+  saveProjectToDb: async () => {
+    const { project } = get();
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${project.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: project.name,
+          description: project.description || "",
+          settings: project.settings,
+          scene_data: project.scene,
+          thumbnail_url: null
+        })
+      });
+      if (!res.ok) throw new Error("Failed to save project");
+      const data = await res.json();
+      set({ isLoading: false });
+    } catch (err: any) {
+      set({ apiError: err.message || "Failed to save project", isLoading: false });
+      alert("Error saving project to database: " + err.message);
+    }
+  },
+
+  createProjectInDb: async (name: string, description?: string) => {
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description: description || "",
+          settings: initialSettings,
+          scene_data: initialScene,
+          thumbnail_url: null
+        })
+      });
+      if (!res.ok) throw new Error("Failed to create project");
+      const data = await res.json();
+      const mappedProject: ProjectState = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        settings: data.settings,
+        scene: data.scene_data
+      };
+      set((state) => ({
+        project: mappedProject,
+        projectsList: [...state.projectsList, { id: data.id, name: data.name, description: data.description }],
+        selectedItemId: null,
+        selectedWallId: null,
+        selectedOpeningId: null,
+        history: [{ scene: { ...mappedProject.scene }, settings: { ...mappedProject.settings } }],
+        historyIndex: 0,
+        isLoading: false
+      }));
+    } catch (err: any) {
+      set({ apiError: err.message || "Failed creating project", isLoading: false });
+      alert("Error creating project in database: " + err.message);
+    }
+  },
+
+  deleteProjectFromDb: async (id: string) => {
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to delete project");
+      
+      set((state) => {
+        const nextList = state.projectsList.filter((p) => p.id !== id);
+        return {
+          projectsList: nextList,
+          isLoading: false
+        };
+      });
+
+      // If the currently loaded project was deleted, load another or reset
+      const { project } = get();
+      if (project.id === id) {
+        const nextProj = get().projectsList[0];
+        if (nextProj) {
+          await get().loadProject(nextProj.id);
+        } else {
+          // Reset to default
+          set({
+            project: {
+              id: "3c7b37d4-8d48-43e9-a3b0-0cb29ffeb8f2",
+              name: "A&R Space Design Project",
+              settings: initialSettings,
+              scene: initialScene
+            }
+          });
+        }
+      }
+    } catch (err: any) {
+      set({ apiError: err.message || "Failed to delete project", isLoading: false });
+    }
+  },
+
+  generateAILayoutViaAPI: async (prompt: string, dimensions: { width: number; length: number; height: number }) => {
+    set({ isLoading: true, apiError: null });
+    try {
+      const res = await fetch(`${API_URL}/api/ai/generate-layout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          room_dimensions: dimensions,
+          units: get().project.settings.units
+        })
+      });
+      if (!res.ok) throw new Error("Failed to arrange room via AI");
+      const data = await res.json();
+      
+      if (data.status === "success" && data.scene) {
+        // Adapt fields from response to types
+        const backendScene = data.scene;
+        const adaptedItems = backendScene.items.map((item: any) => ({
+          id: item.id,
+          catalogId: item.catalog_id || item.id,
+          name: item.name,
+          category: item.category,
+          x: item.x,
+          y: item.y,
+          z: item.z,
+          rotation: item.rotation,
+          width: item.width,
+          height: item.height,
+          depth: item.depth,
+          color: item.color,
+          material: item.material,
+          price: item.price
+        }));
+
+        const adaptedWalls = backendScene.walls.map((wall: any) => ({
+          id: wall.id,
+          start: wall.start,
+          end: wall.end,
+          thickness: wall.thickness || get().project.settings.wallThickness,
+          height: wall.height || get().project.settings.wallHeight
+        }));
+
+        const adaptedOpenings = backendScene.openings.map((op: any) => ({
+          id: op.id,
+          type: op.type,
+          wallId: op.wall_id,
+          distance: op.distance,
+          width: op.width,
+          height: op.height,
+          style: op.style
+        }));
+
+        const adaptedScene = {
+          wall_color: backendScene.wall_color,
+          wall_finish: backendScene.wall_finish || "Matte",
+          floor_material: backendScene.floor_material,
+          walls: adaptedWalls,
+          items: adaptedItems,
+          openings: adaptedOpenings,
+          lights: backendScene.lights || get().project.scene.lights
+        };
+
+        const updatedProject = {
+          ...get().project,
+          scene: adaptedScene
+        };
+
+        set({
+          project: updatedProject,
+          selectedItemId: null,
+          selectedWallId: null,
+          selectedOpeningId: null
+        });
+        
+        get().pushHistory();
+      }
+      set({ isLoading: false });
+    } catch (err: any) {
+      set({ apiError: err.message || "AI arrangement failed", isLoading: false });
+      alert("Error generating AI layout: " + err.message);
+    }
+  },
+
+  // Base state modifications
   setProject: (proj) => set({ project: proj, selectedItemId: null }),
 
   updateSettings: (settingsUpdates) => {
@@ -171,7 +420,7 @@ export const useStore = create<RoomCraftStore>((set, get) => ({
     get().addItem({
       ...itemToClone,
       id: undefined as any,
-      x: itemToClone.x + 0.5, // shift position slightly
+      x: itemToClone.x + 0.5,
       z: itemToClone.z + 0.5
     } as any);
   },
@@ -211,7 +460,6 @@ export const useStore = create<RoomCraftStore>((set, get) => ({
   deleteWall: (id) => {
     set((state) => {
       const updatedWalls = state.project.scene.walls.filter((w) => w.id !== id);
-      // Remove openings connected to this wall
       const updatedOpenings = state.project.scene.openings.filter((o) => o.wallId !== id);
       const updatedScene = { ...state.project.scene, walls: updatedWalls, openings: updatedOpenings };
       const updatedProject = { ...state.project, scene: updatedScene };

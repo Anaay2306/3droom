@@ -60,7 +60,7 @@ export function PropertiesPanel() {
   return (
     <div className="w-full h-full bg-slate-950 border-l border-slate-800 flex flex-col text-slate-200">
       <div className="p-4 border-b border-slate-800 flex flex-row justify-between items-center bg-slate-900/50">
-        <h3 className="font-bold text-sm tracking-wider uppercase text-emerald-400">Inspector</h3>
+        <h3 className="font-bold text-sm tracking-wider uppercase text-sky-400">Inspector</h3>
         {selectedItem && (
           <button 
             onClick={() => duplicateItem(selectedItem.id)}
@@ -81,7 +81,7 @@ export function PropertiesPanel() {
                 type="text"
                 value={selectedItem.name}
                 onChange={(e) => updateItem(selectedItem.id, { name: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
               />
             </div>
 
@@ -226,7 +226,7 @@ export function PropertiesPanel() {
                 step="0.1"
                 value={parseFloat(wallLength.toFixed(2)) || 0}
                 onChange={(e) => handleLengthChange(parseFloat(e.target.value) || 0.1)}
-                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
               />
             </div>
 
@@ -237,7 +237,7 @@ export function PropertiesPanel() {
                 step="0.05"
                 value={selectedWall.thickness}
                 onChange={(e) => updateWall(selectedWall.id, { thickness: Math.max(0.05, parseFloat(e.target.value) || 0.1) })}
-                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
               />
             </div>
 
@@ -248,7 +248,7 @@ export function PropertiesPanel() {
                 step="0.1"
                 value={selectedWall.height}
                 onChange={(e) => updateWall(selectedWall.id, { height: Math.max(0.5, parseFloat(e.target.value) || 2.4) })}
-                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
               />
             </div>
 
@@ -268,7 +268,7 @@ export function PropertiesPanel() {
           <>
             <div>
               <label className="text-xs text-slate-500 font-semibold uppercase">Type</label>
-              <span className="block capitalize font-bold text-emerald-400 mt-0.5">{selectedOpening.type}</span>
+              <span className="block capitalize font-bold text-sky-400 mt-0.5">{selectedOpening.type}</span>
             </div>
 
             <div>

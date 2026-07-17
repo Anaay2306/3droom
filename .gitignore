@@ -1,0 +1,10 @@
+# Local environment variables and credentials
+.env
+**/.env
+
+# Generated dependencies and build output
+node_modules/
+dist/
+build/
+__pycache__/
+*.py[cod]

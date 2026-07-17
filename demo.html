@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RoomCraft Studio - 2D/3D Planner</title>
+  <title>A&R Contractors & Builders - 2D/3D Space Planner</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts - Outfit -->
@@ -39,11 +39,11 @@
         extend: {
           colors: {
             brand: {
-              50: '#ecfdf5',
-              100: '#d1fae5',
-              500: '#10b981',
-              600: '#059669',
-              700: '#047857'
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1'
             }
           }
         }
@@ -56,18 +56,16 @@
   <!-- TOP NAVBAR -->
   <header class="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between z-40 shrink-0">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-bold text-slate-950 shadow-lg shadow-emerald-500/10">
-        RC
-      </div>
+      <img src="logo.jpg" alt="A&R Contractors & Builders Logo" class="w-10 h-10 object-contain rounded bg-white p-0.5 border border-slate-700 shadow-md shadow-sky-500/10" />
       <div>
-        <h1 class="font-extrabold text-sm tracking-wide text-white uppercase leading-none">RoomCraft</h1>
-        <span class="text-slate-500 text-[10px] uppercase tracking-widest font-semibold block mt-0.5">Studio v1.0</span>
+        <h1 class="font-extrabold text-sm tracking-wide text-white uppercase leading-none">A&R Group</h1>
+        <span class="text-slate-400 text-[10px] uppercase tracking-widest font-semibold block mt-0.5">Contractors & Builders</span>
       </div>
     </div>
 
     <!-- AI Prompt Layout Bar -->
     <div class="flex-1 max-w-lg mx-6 flex items-center bg-slate-900/60 border border-slate-850 hover:border-slate-800 focus-within:border-brand-500/50 rounded-full px-4 py-1.5 transition-all">
-      <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400 mr-2 shrink-0 animate-pulse"></i>
+      <i data-lucide="sparkles" class="w-4 h-4 text-sky-400 mr-2 shrink-0 animate-pulse"></i>
       <input 
         id="aiPromptInput" 
         type="text" 
@@ -76,7 +74,7 @@
       />
       <button 
         onclick="generateAILayout()" 
-        class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider hover:text-emerald-300 ml-2"
+        class="text-[10px] font-bold text-sky-400 uppercase tracking-wider hover:text-sky-300 ml-2"
       >
         Generate
       </button>
