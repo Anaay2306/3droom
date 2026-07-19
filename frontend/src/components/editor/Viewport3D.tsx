@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Grid, PerspectiveCamera } from "@react-three/drei";
 import { useStore } from "../../store/useStore";
 import * as THREE from "three";
+import { Wall, RoomOpening, FurnitureItem } from "../../types";
 
 // Individual wall segment component in 3D
 function Wall3D({ start, end, thickness, height, color }: {
