@@ -25,6 +25,7 @@ export function Editor2D() {
   const [pan, setPan] = useState<Point2D>({ x: 400, y: 300 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<Point2D>({ x: 0, y: 0 });
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawingWallStart, setDrawingWallStart] = useState<Point2D | null>(null);
   const [mousePos, setMousePos] = useState<Point2D>({ x: 0, y: 0 });
   
@@ -61,19 +62,25 @@ export function Editor2D() {
     if (e.button === 1 || e.shiftKey) { // Middle click or shift pan
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    } else if (drawingWallStart) {
-      // Finalize the current wall segment
-      addWall({
-        start: drawingWallStart,
-        end: gridCoords,
-        thickness: project.settings.wallThickness,
-        height: project.settings.wallHeight
-      });
-      if (e.ctrlKey) {
-        // Continue drawing next segment from this end point
+    } else if (isDrawingMode) {
+      if (!drawingWallStart) {
+        // First click sets the start point of the wall
         setDrawingWallStart(gridCoords);
       } else {
-        setDrawingWallStart(null);
+        // Second click finalizes the current wall segment
+        addWall({
+          start: drawingWallStart,
+          end: gridCoords,
+          thickness: project.settings.wallThickness,
+          height: project.settings.wallHeight
+        });
+        if (e.ctrlKey) {
+          // Continue drawing next segment from this end point
+          setDrawingWallStart(gridCoords);
+        } else {
+          setDrawingWallStart(null);
+          setIsDrawingMode(false);
+        }
       }
     }
   };
@@ -268,17 +275,24 @@ export function Editor2D() {
       <div className="absolute top-4 left-4 flex flex-row gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-800 shadow-2xl">
         <button 
           onClick={() => {
-            const startX = 0;
-            const startY = 0;
-            setDrawingWallStart({ x: startX, y: startY });
+            if (isDrawingMode) {
+              setIsDrawingMode(false);
+              setDrawingWallStart(null);
+            } else {
+              setIsDrawingMode(true);
+              setDrawingWallStart(null);
+            }
           }}
-          className={`px-3 py-1 text-xs font-semibold rounded ${drawingWallStart ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
+          className={`px-3 py-1 text-xs font-semibold rounded ${isDrawingMode ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
         >
-          {drawingWallStart ? "Drawing Wall..." : "Draw Wall"}
+          {isDrawingMode ? (drawingWallStart ? "Drawing Wall..." : "Click to Start Wall") : "Draw Wall"}
         </button>
-        {drawingWallStart && (
+        {isDrawingMode && (
           <button 
-            onClick={() => setDrawingWallStart(null)}
+            onClick={() => {
+              setIsDrawingMode(false);
+              setDrawingWallStart(null);
+            }}
             className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-500 rounded text-white"
           >
             Cancel
