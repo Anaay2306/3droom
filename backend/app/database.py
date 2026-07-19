@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 
 # Supabase URL will be passed as DATABASE_URL env var on Render.
 # Fallback to local SQLite ar_builders.db for local dev.
@@ -17,7 +18,8 @@ if "sqlite" in DATABASE_URL:
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    # Use NullPool for PostgreSQL to properly support transaction pooling on Supabase / PgBouncer
+    engine = create_engine(DATABASE_URL, poolclass=NullPool)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
