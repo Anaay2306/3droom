@@ -7,4 +7,4 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        placeholder: "Insert your Supabase Connection String (Transaction Pooler or Session Pooler)"
+        sync: false
