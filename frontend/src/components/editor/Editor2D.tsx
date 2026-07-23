@@ -32,6 +32,9 @@ export function Editor2D() {
   const [mousePos, setMousePos] = useState<Point2D>({ x: 0, y: 0 });
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Point2D>({ x: 0, y: 0 });
+  const [rotatingItemId, setRotatingItemId] = useState<string | null>(null);
+  const [initialRotAngle, setInitialRotAngle] = useState<number>(0);
+  const [initialItemRotation, setInitialItemRotation] = useState<number>(0);
   
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +109,17 @@ export function Editor2D() {
         targetZ = snapToGrid(targetZ, project.settings.gridSize);
       }
       updateItem(draggingItemId, { x: targetX, z: targetZ });
+    } else if (rotatingItemId) {
+      const item = project.scene.items.find(i => i.id === rotatingItemId);
+      if (item) {
+        const currentAngle = Math.atan2(worldCoords.y - item.z, worldCoords.x - item.x);
+        const deltaAngle = currentAngle - initialRotAngle;
+        let newRotation = initialItemRotation + Math.round((deltaAngle * 180) / Math.PI);
+        if (project.settings.gridSnap) {
+          newRotation = Math.round(newRotation / 15) * 15;
+        }
+        updateItem(rotatingItemId, { rotation: newRotation });
+      }
     } else if (isPanning) {
       setPan({
         x: e.clientX - panStart.x,
@@ -120,6 +134,10 @@ export function Editor2D() {
       setDraggingItemId(null);
       pushHistory();
     }
+    if (rotatingItemId) {
+      setRotatingItemId(null);
+      pushHistory();
+    }
   };
 
   const handleItemMouseDown = (e: React.MouseEvent, item: FurnitureItem) => {
@@ -132,6 +150,18 @@ export function Editor2D() {
       x: worldCoords.x - item.x,
       y: worldCoords.y - item.z
     });
+  };
+
+  const handleRotateMouseDown = (e: React.MouseEvent, item: FurnitureItem) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.button !== 0) return; // Only left click
+    selectItem(item.id);
+    setRotatingItemId(item.id);
+    const worldCoords = screenToWorld(e.clientX, e.clientY);
+    const angle = Math.atan2(worldCoords.y - item.z, worldCoords.x - item.x);
+    setInitialRotAngle(angle);
+    setInitialItemRotation(item.rotation);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -285,6 +315,22 @@ export function Editor2D() {
               >
                 {item.name}
               </text>
+              {isSelected && (
+                <g onMouseDown={(ev) => handleRotateMouseDown(ev, item)} onClick={(ev) => ev.stopPropagation()}>
+                  <line 
+                    x1={0} y1={-d / 2} 
+                    x2={0} y2={-d / 2 - 15} 
+                    stroke="#0ea5e9" 
+                    strokeWidth="1.5" 
+                  />
+                  <circle 
+                    cx={0} cy={-d / 2 - 15} 
+                    r="4.5" 
+                    fill="#0ea5e9" 
+                    className="cursor-alias hover:scale-125 transition-transform" 
+                  />
+                </g>
+              )}
             </g>
           );
         })}

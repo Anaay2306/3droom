@@ -163,9 +163,9 @@ function TransformableFurnitureItem3D({
     </group>
   );
 
-  if (isSelected && !isPointerDragging) {
-    return (
-      <group>
+  return (
+    <group>
+      {isSelected && !isPointerDragging && (
         <TransformControls
           object={groupRef}
           mode={transformMode}
@@ -185,12 +185,10 @@ function TransformableFurnitureItem3D({
             pushHistory();
           }}
         />
-        {itemMesh}
-      </group>
-    );
-  }
-
-  return itemMesh;
+      )}
+      {itemMesh}
+    </group>
+  );
 }
 
 // Room Opening component in 3D

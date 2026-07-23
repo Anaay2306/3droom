@@ -236,6 +236,14 @@
 
       <!-- 3D PREVIEW PANEL -->
       <div id="panel3D" class="flex-1 h-full relative" style="width: 50%;">
+        <div class="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+          <button onclick="setTransformMode3D('translate')" id="btnMove3D" class="px-2.5 py-1 text-[10px] font-bold bg-emerald-500 text-slate-950 rounded uppercase transition">
+            Move
+          </button>
+          <button onclick="setTransformMode3D('rotate')" id="btnRotate3D" class="px-2.5 py-1 text-[10px] font-bold bg-slate-900 text-slate-355 border border-slate-800 hover:text-white rounded uppercase transition">
+            Rotate
+          </button>
+        </div>
         <div class="absolute bottom-4 right-4 z-10 bg-slate-950/80 backdrop-blur border border-slate-850 px-3 py-1.5 rounded-lg text-[10px] text-slate-500 font-semibold uppercase tracking-wider select-none">
           Right: Real-Time 3D (Orbit Controls)
         </div>
@@ -431,13 +439,27 @@
         const s = worldToScreen(wall.start.x, wall.start.y);
         const e = worldToScreen(wall.end.x, wall.end.y);
         const isSelected = appState.selection.type === 'wall' && appState.selection.id === wall.id;
+        const wallColor = wall.color || scene.wall_color || "#cbd5e1";
+
+        if (isSelected) {
+          const selectionLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          selectionLine.setAttribute("x1", s.x);
+          selectionLine.setAttribute("y1", s.y);
+          selectionLine.setAttribute("x2", e.x);
+          selectionLine.setAttribute("y2", e.y);
+          selectionLine.setAttribute("stroke", "#10b981");
+          selectionLine.setAttribute("stroke-width", wall.thickness * worldScale + 6);
+          selectionLine.setAttribute("stroke-linecap", "round");
+          selectionLine.setAttribute("opacity", "0.65");
+          wallsGroup.appendChild(selectionLine);
+        }
 
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.setAttribute("x1", s.x);
         line.setAttribute("y1", s.y);
         line.setAttribute("x2", e.x);
         line.setAttribute("y2", e.y);
-        line.setAttribute("stroke", isSelected ? "#10b981" : "#cbd5e1");
+        line.setAttribute("stroke", wallColor);
         line.setAttribute("stroke-width", wall.thickness * worldScale);
         line.setAttribute("stroke-linecap", "round");
         line.setAttribute("class", "hover:stroke-emerald-400 cursor-pointer transition");
@@ -600,9 +622,16 @@
             item.x = nx;
             item.z = nz;
             
-            // Sync renders
-            render2DPlanner();
+            // Sync renders locally without clearing layout
+            const newScreenPos = worldToScreen(nx, nz);
+            group.setAttribute("transform", `translate(${newScreenPos.x}, ${newScreenPos.y}) rotate(${item.rotation})`);
             update3DScene();
+
+            // Sync fields in inspector if visible
+            const xInput = document.querySelector('input[oninput*="updateSelectedField(\'x\'"]');
+            const zInput = document.querySelector('input[oninput*="updateSelectedField(\'z\'"]');
+            if (xInput) xInput.value = nx.toFixed(2);
+            if (zInput) zInput.value = nz.toFixed(2);
           };
 
           const onMouseUp = () => {
@@ -610,6 +639,8 @@
             window.removeEventListener("mousemove", onMouseMove);
             window.removeEventListener("mouseup", onMouseUp);
             pushHistoryState();
+            render2DPlanner();
+            renderInspector();
           };
 
           window.addEventListener("mousemove", onMouseMove);
@@ -636,6 +667,71 @@
         text.setAttribute("text-anchor", "middle");
         text.textContent = item.name;
         group.appendChild(text);
+
+        if (isSelected) {
+          const handleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          handleGroup.setAttribute("class", "cursor-alias");
+          
+          const handleLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          handleLine.setAttribute("x1", 0);
+          handleLine.setAttribute("y1", -d / 2);
+          handleLine.setAttribute("x2", 0);
+          handleLine.setAttribute("y2", -d / 2 - 15);
+          handleLine.setAttribute("stroke", "#10b981");
+          handleLine.setAttribute("stroke-width", "1.5");
+          handleGroup.appendChild(handleLine);
+
+          const handleCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          handleCircle.setAttribute("cx", 0);
+          handleCircle.setAttribute("cy", -d / 2 - 15);
+          handleCircle.setAttribute("r", "4.5");
+          handleCircle.setAttribute("fill", "#10b981");
+          handleGroup.appendChild(handleCircle);
+          
+          handleGroup.onmousedown = (rotEv) => {
+            rotEv.stopPropagation();
+            rotEv.preventDefault();
+            
+            let isRotating = true;
+            const currentWorld = screenToWorld(rotEv.clientX, rotEv.clientY);
+            const initialAngle = Math.atan2(currentWorld.y - item.z, currentWorld.x - item.x);
+            const initialRotation = item.rotation;
+
+            const onMouseMoveRot = (moveEv) => {
+              if (!isRotating) return;
+              const worldMove = screenToWorld(moveEv.clientX, moveEv.clientY);
+              const currentAngle = Math.atan2(worldMove.y - item.z, worldMove.x - item.x);
+              const deltaAngle = currentAngle - initialAngle;
+              let newRotation = initialRotation + Math.round((deltaAngle * 180) / Math.PI);
+              
+              if (appState.project.settings.gridSnap) {
+                newRotation = Math.round(newRotation / 15) * 15;
+              }
+              
+              item.rotation = newRotation;
+              
+              group.setAttribute("transform", `translate(${screenPos.x}, ${screenPos.y}) rotate(${item.rotation})`);
+              update3DScene();
+              
+              const rotInput = document.querySelector('input[oninput*="updateSelectedField(\'rotation\'"]');
+              if (rotInput) rotInput.value = item.rotation;
+            };
+
+            const onMouseUpRot = () => {
+              isRotating = false;
+              window.removeEventListener("mousemove", onMouseMoveRot);
+              window.removeEventListener("mouseup", onMouseUpRot);
+              pushHistoryState();
+              render2DPlanner();
+              renderInspector();
+            };
+
+            window.addEventListener("mousemove", onMouseMoveRot);
+            window.addEventListener("mouseup", onMouseUpRot);
+          };
+
+          group.appendChild(handleGroup);
+        }
 
         itemsGroup.appendChild(group);
       });
@@ -795,6 +891,124 @@
         renderer.render(scene3D, camera);
       }
       animate();
+
+      // Raycasting interaction variables
+      let raycaster = new THREE.Raycaster();
+      let mouse = new THREE.Vector2();
+      let isDragging3D = false;
+      let draggedItemId3D = null;
+      let dragOffset3D = new THREE.Vector3();
+      let transformMode3D = "translate"; // or "rotate"
+      let initialDragAngle = 0;
+      let initialItemRotation = 0;
+
+      // Expose setter for transformMode3D
+      window.setTransformMode3D = function(mode) {
+        transformMode3D = mode;
+        const btnMove = document.getElementById("btnMove3D");
+        const btnRotate = document.getElementById("btnRotate3D");
+        if (mode === "translate") {
+          btnMove.className = "px-2.5 py-1 text-[10px] font-bold bg-emerald-500 text-slate-950 rounded uppercase transition";
+          btnRotate.className = "px-2.5 py-1 text-[10px] font-bold bg-slate-900 text-slate-355 border border-slate-800 hover:text-white rounded uppercase transition";
+        } else {
+          btnMove.className = "px-2.5 py-1 text-[10px] font-bold bg-slate-900 text-slate-355 border border-slate-800 hover:text-white rounded uppercase transition";
+          btnRotate.className = "px-2.5 py-1 text-[10px] font-bold bg-emerald-500 text-slate-950 rounded uppercase transition";
+        }
+      };
+
+      renderer.domElement.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return; // Left click only
+        
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        
+        const intersects = raycaster.intersectObjects(threeItems, true);
+        if (intersects.length > 0) {
+          let obj = intersects[0].object;
+          while (obj && obj.parent && !threeItems.includes(obj)) {
+            obj = obj.parent;
+          }
+          
+          if (obj && obj.userData && obj.userData.itemId) {
+            e.preventDefault();
+            draggedItemId3D = obj.userData.itemId;
+            selectElement('item', draggedItemId3D);
+            isDragging3D = true;
+            controls.enabled = false;
+            
+            const item = appState.project.scene.items.find(i => i.id === draggedItemId3D);
+            if (item) {
+              const intersectionPoint = new THREE.Vector3();
+              const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -item.y);
+              raycaster.ray.intersectPlane(plane, intersectionPoint);
+              
+              if (transformMode3D === "translate") {
+                dragOffset3D.copy(intersectionPoint).sub(new THREE.Vector3(item.x, item.y, item.z));
+              } else {
+                initialItemRotation = item.rotation;
+                initialDragAngle = Math.atan2(intersectionPoint.z - item.z, intersectionPoint.x - item.x);
+              }
+            }
+          }
+        }
+      });
+
+      renderer.domElement.addEventListener("mousemove", (e) => {
+        if (!isDragging3D || !draggedItemId3D) return;
+        
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        
+        const item = appState.project.scene.items.find(i => i.id === draggedItemId3D);
+        if (item) {
+          const intersectionPoint = new THREE.Vector3();
+          const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -item.y);
+          raycaster.ray.intersectPlane(plane, intersectionPoint);
+          
+          if (transformMode3D === "translate") {
+            let targetX = intersectionPoint.x - dragOffset3D.x;
+            let targetZ = intersectionPoint.z - dragOffset3D.z;
+            
+            if (appState.project.settings.gridSnap) {
+              targetX = snapValue(targetX, appState.project.settings.gridSize);
+              targetZ = snapValue(targetZ, appState.project.settings.gridSize);
+            }
+            
+            item.x = targetX;
+            item.z = targetZ;
+          } else {
+            const currentAngle = Math.atan2(intersectionPoint.z - item.z, intersectionPoint.x - item.x);
+            const deltaAngle = currentAngle - initialDragAngle;
+            let newRotation = initialItemRotation - Math.round((deltaAngle * 180) / Math.PI);
+            if (appState.project.settings.gridSnap) {
+              newRotation = Math.round(newRotation / 15) * 15;
+            }
+            item.rotation = newRotation;
+          }
+          
+          render2DPlanner();
+          update3DScene();
+          renderInspector();
+        }
+      });
+
+      const handleMouseUp3D = () => {
+        if (isDragging3D) {
+          isDragging3D = false;
+          draggedItemId3D = null;
+          controls.enabled = true;
+          pushHistoryState();
+        }
+      };
+      
+      renderer.domElement.addEventListener("mouseup", handleMouseUp3D);
+      renderer.domElement.addEventListener("mouseleave", handleMouseUp3D);
 
       // Handle Resize
       window.addEventListener("resize", () => {
@@ -1022,6 +1236,8 @@
           group.add(wireMesh);
         }
 
+        group.userData = { itemId: item.id };
+
         scene3D.add(group);
         threeItems.push(group);
       });
@@ -1153,6 +1369,14 @@
           <div>
             <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wall Height (m)</label>
             <input type="number" step="0.1" value="${wall.height.toFixed(2)}" oninput="updateSelectedField('height', Math.max(0.5, parseFloat(this.value) || 2.4))" class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white" />
+          </div>
+
+          <div>
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Individual Accent Color</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="color" value="${wall.color || scene.wall_color || '#F3F4F6'}" oninput="updateSelectedField('color', this.value)" class="w-8 h-8 rounded bg-transparent border border-slate-800 cursor-pointer" />
+              <input type="text" value="${wall.color || ''}" placeholder="Inherit global color" oninput="updateSelectedField('color', this.value || undefined)" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white flex-1" />
+            </div>
           </div>
 
           <div class="border-t border-slate-900 pt-4">
