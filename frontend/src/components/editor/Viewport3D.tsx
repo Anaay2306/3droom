@@ -62,7 +62,7 @@ function TransformableFurnitureItem3D({
   setOrbitEnabled: (enabled: boolean) => void;
   transformMode: "translate" | "rotate";
 }) {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<any>(null);
   const { project } = useStore();
   const [isPointerDragging, setIsPointerDragging] = useState(false);
   const dragOffset = useRef(new THREE.Vector3());
@@ -143,7 +143,6 @@ function TransformableFurnitureItem3D({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      className="cursor-move"
     >
       <mesh castShadow receiveShadow>
         {geometry}

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { 
   ProjectState, FurnitureItem, Wall, RoomOpening, 
-  LightFixture, ProjectSettings, Point2D 
+  LightFixture, ProjectSettings, Point2D, ProjectScene 
 } from "../types";
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
