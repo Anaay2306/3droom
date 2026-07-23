@@ -18,7 +18,9 @@ export function Editor2D() {
     addWall, 
     deleteWall,
     deleteItem,
-    addOpening
+    addOpening,
+    addItem,
+    pushHistory
   } = useStore();
 
   const [zoom, setZoom] = useState(1);
@@ -28,6 +30,8 @@ export function Editor2D() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawingWallStart, setDrawingWallStart] = useState<Point2D | null>(null);
   const [mousePos, setMousePos] = useState<Point2D>({ x: 0, y: 0 });
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<Point2D>({ x: 0, y: 0 });
   
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +98,15 @@ export function Editor2D() {
     
     setMousePos(gridCoords);
 
-    if (isPanning) {
+    if (draggingItemId) {
+      let targetX = worldCoords.x - dragOffset.x;
+      let targetZ = worldCoords.y - dragOffset.y;
+      if (project.settings.gridSnap) {
+        targetX = snapToGrid(targetX, project.settings.gridSize);
+        targetZ = snapToGrid(targetZ, project.settings.gridSize);
+      }
+      updateItem(draggingItemId, { x: targetX, z: targetZ });
+    } else if (isPanning) {
       setPan({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y
@@ -104,6 +116,58 @@ export function Editor2D() {
 
   const handleMouseUp = () => {
     setIsPanning(false);
+    if (draggingItemId) {
+      setDraggingItemId(null);
+      pushHistory();
+    }
+  };
+
+  const handleItemMouseDown = (e: React.MouseEvent, item: FurnitureItem) => {
+    e.stopPropagation();
+    if (e.button !== 0) return; // Only left click
+    selectItem(item.id);
+    setDraggingItemId(item.id);
+    const worldCoords = screenToWorld(e.clientX, e.clientY);
+    setDragOffset({
+      x: worldCoords.x - item.x,
+      y: worldCoords.y - item.z
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    try {
+      const dataStr = e.dataTransfer.getData("text/plain");
+      if (!dataStr) return;
+      const asset = JSON.parse(dataStr);
+      if (!asset || !asset.name) return; // not a catalog asset
+      
+      const worldCoords = screenToWorld(e.clientX, e.clientY);
+      const targetX = project.settings.gridSnap ? snapToGrid(worldCoords.x, project.settings.gridSize) : worldCoords.x;
+      const targetZ = project.settings.gridSnap ? snapToGrid(worldCoords.y, project.settings.gridSize) : worldCoords.y;
+      
+      addItem({
+        catalogId: asset.name.toLowerCase().replace(/ /g, "_"),
+        name: asset.name,
+        category: asset.category,
+        x: targetX,
+        y: 0,
+        z: targetZ,
+        rotation: 0,
+        width: asset.width,
+        height: asset.height,
+        depth: asset.depth,
+        color: asset.defaultColor,
+        material: asset.defaultMaterial,
+        price: asset.price
+      });
+    } catch (err) {
+      console.error("Drop error", err);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -121,9 +185,18 @@ export function Editor2D() {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {/* Canvas Layer */}
-      <svg className="w-full h-full">
+      <svg 
+        className="w-full h-full"
+        onClick={() => {
+          selectItem(null);
+          selectWall(null);
+          selectOpening(null);
+        }}
+      >
         {/* Grid lines */}
         <defs>
           <pattern id="grid" width={50 * zoom} height={50 * zoom} patternUnits="userSpaceOnUse">
@@ -176,7 +249,8 @@ export function Editor2D() {
             <g 
               key={item.id} 
               transform={`translate(${screenPos.x}, ${screenPos.y}) rotate(${item.rotation})`}
-              onClick={(ev) => { ev.stopPropagation(); selectItem(item.id); }}
+              onMouseDown={(ev) => handleItemMouseDown(ev, item)}
+              onClick={(ev) => ev.stopPropagation()}
               className="cursor-move"
             >
               <rect

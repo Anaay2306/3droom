@@ -41,7 +41,7 @@ const FURNITURE_CATALOG: Record<string, CatalogAsset[]> = {
 };
 
 export function AssetLibrary() {
-  const { addItem, project, setProject } = useStore();
+  const { addItem, project, setProject, updateScene } = useStore();
   const [activeTab, setActiveTab] = useState<"furniture" | "materials" | "openings">("furniture");
   const [activeCategory, setActiveCategory] = useState<"bedroom" | "living" | "kitchen" | "office">("living");
 
@@ -83,9 +83,7 @@ export function AssetLibrary() {
   };
 
   const handleSelectMaterial = (materialKey: string) => {
-    const store = useStore.getState();
-    const updatedScene = { ...project.scene, floor_material: materialKey };
-    setProject({ ...project, scene: updatedScene });
+    updateScene({ floor_material: materialKey, floor_color: undefined });
   };
 
   return (
@@ -134,6 +132,10 @@ export function AssetLibrary() {
                 <div
                   key={index}
                   onClick={() => handleAddObject(asset)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", JSON.stringify(asset));
+                  }}
                   className="bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg p-2 cursor-pointer transition flex flex-col justify-between items-center text-center shadow-md group"
                 >
                   {/* Miniature Box Preview Mock */}
@@ -149,53 +151,117 @@ export function AssetLibrary() {
         )}
 
         {activeTab === "materials" && (
-          <div className="space-y-3">
-            <h4 className="text-xs text-slate-500 font-semibold uppercase">Floor Finishes</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: "Light Oak Wood", key: "light_oak_wood", hex: "#E5C29B" },
-                { name: "Walnut Wood", key: "walnut_wood", hex: "#5C4033" },
-                { name: "Concrete Gray", key: "concrete_gray", hex: "#8A8A8A" },
-                { name: "Soft Carpet", key: "gray_carpet", hex: "#D1D5DB" }
-              ].map((mat) => {
-                const isActive = project.scene.floor_material === mat.key;
-                return (
-                  <div
-                    key={mat.key}
-                    onClick={() => handleSelectMaterial(mat.key)}
-                    className={`border rounded-lg p-2.5 cursor-pointer transition flex flex-row items-center gap-2 ${isActive ? "bg-sky-950/30 border-sky-600" : "bg-slate-900 border-slate-800 hover:bg-slate-850"}`}
-                  >
-                    <div className="w-5 h-5 rounded-full border border-slate-700" style={{ backgroundColor: mat.hex }} />
-                    <span className="text-xs font-semibold text-white">{mat.name}</span>
-                  </div>
-                );
-              })}
+          <div className="space-y-4">
+            {/* Wall Paint Colors */}
+            <div>
+              <h4 className="text-xs text-slate-500 font-semibold uppercase mb-2">Wall Paint Colors</h4>
+              <div className="flex flex-wrap gap-2 py-1 bg-slate-900/30 p-2 rounded-lg border border-slate-900">
+                {[
+                  { name: "White", hex: "#FFFFFF" },
+                  { name: "Alabaster", hex: "#F2EFE9" },
+                  { name: "Cool Gray", hex: "#D1D5DB" },
+                  { name: "Slate Blue", hex: "#4B5563" },
+                  { name: "Navy Accent", hex: "#1E3A8A" },
+                  { name: "Sage", hex: "#8FBC8F" },
+                  { name: "Terracotta", hex: "#E2725B" },
+                  { name: "Charcoal", hex: "#1F2937" }
+                ].map((color) => {
+                  const isActive = project.scene.wall_color.toLowerCase() === color.hex.toLowerCase();
+                  return (
+                    <button
+                      key={color.hex}
+                      onClick={() => updateScene({ wall_color: color.hex })}
+                      className={`w-6 h-6 rounded-full border shadow-sm transition-transform hover:scale-110 ${isActive ? "border-sky-500 ring-2 ring-sky-950" : "border-slate-800"}`}
+                      style={{ backgroundColor: color.hex }}
+                      title={color.name}
+                    />
+                  );
+                })}
+              </div>
+              {/* Custom Wall Color Picker */}
+              <div className="flex flex-row items-center gap-2 mt-2">
+                <input
+                  type="color"
+                  value={project.scene.wall_color || "#F3F4F6"}
+                  onChange={(e) => updateScene({ wall_color: e.target.value })}
+                  className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer shrink-0"
+                  title="Custom Wall Color Picker"
+                />
+                <input
+                  type="text"
+                  value={project.scene.wall_color || "#F3F4F6"}
+                  onChange={(e) => updateScene({ wall_color: e.target.value })}
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs text-white uppercase"
+                  placeholder="Hex color"
+                />
+              </div>
             </div>
 
-            <h4 className="text-xs text-slate-500 font-semibold uppercase pt-4">Wall Paint Finishes</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: "Matte", key: "Matte" },
-                { name: "Satin", key: "Satin" },
-                { name: "Gloss", key: "Gloss" }
-              ].map((finish) => {
-                const isActive = project.scene.wall_finish === finish.key;
-                return (
-                  <button
-                    key={finish.key}
-                    onClick={() => {
-                      const store = useStore.getState();
-                      store.setProject({
-                        ...project,
-                        scene: { ...project.scene, wall_finish: finish.key as any }
-                      });
-                    }}
-                    className={`text-xs font-semibold border rounded-lg py-2 transition ${isActive ? "bg-sky-950/30 border-sky-600 text-sky-400" : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850"}`}
-                  >
-                    {finish.name}
-                  </button>
-                );
-              })}
+            {/* Wall Paint Finishes */}
+            <div>
+              <h4 className="text-xs text-slate-500 font-semibold uppercase mb-2">Wall Paint Finishes</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { name: "Matte", key: "Matte" },
+                  { name: "Satin", key: "Satin" },
+                  { name: "Gloss", key: "Gloss" }
+                ].map((finish) => {
+                  const isActive = project.scene.wall_finish === finish.key;
+                  return (
+                    <button
+                      key={finish.key}
+                      onClick={() => updateScene({ wall_finish: finish.key as any })}
+                      className={`text-xs font-semibold border rounded-lg py-2 transition ${isActive ? "bg-sky-950/30 border-sky-600 text-sky-400 font-bold" : "bg-slate-900 border-slate-800 text-slate-350 hover:bg-slate-850"}`}
+                    >
+                      {finish.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Floor Finishes */}
+            <div>
+              <h4 className="text-xs text-slate-500 font-semibold uppercase mb-2">Floor Finishes</h4>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {[
+                  { name: "Light Oak Wood", key: "light_oak_wood", hex: "#E5C29B" },
+                  { name: "Walnut Wood", key: "walnut_wood", hex: "#5C4033" },
+                  { name: "Concrete Gray", key: "concrete_gray", hex: "#8A8A8A" },
+                  { name: "Soft Carpet", key: "gray_carpet", hex: "#D1D5DB" },
+                  { name: "White Marble", key: "marble_white", hex: "#F3F4F6" },
+                  { name: "Dark Tiles", key: "dark_tiles", hex: "#2D3748" }
+                ].map((mat) => {
+                  const isActive = project.scene.floor_material === mat.key && !project.scene.floor_color;
+                  return (
+                    <div
+                      key={mat.key}
+                      onClick={() => handleSelectMaterial(mat.key)}
+                      className={`border rounded-lg p-2 cursor-pointer transition flex flex-row items-center gap-2 ${isActive ? "bg-sky-950/30 border-sky-600" : "bg-slate-900 border-slate-800 hover:bg-slate-850"}`}
+                    >
+                      <div className="w-5 h-5 rounded border border-slate-700 shrink-0" style={{ backgroundColor: mat.hex }} />
+                      <span className="text-[11px] font-semibold text-white truncate">{mat.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Custom Floor Color Picker */}
+              <div className="flex flex-row items-center gap-2 mt-2">
+                <input
+                  type="color"
+                  value={project.scene.floor_color || "#D1D5DB"}
+                  onChange={(e) => updateScene({ floor_color: e.target.value, floor_material: "custom" })}
+                  className="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer shrink-0"
+                  title="Custom Floor Color Picker"
+                />
+                <input
+                  type="text"
+                  value={project.scene.floor_color || ""}
+                  placeholder="Custom Hex Floor"
+                  onChange={(e) => updateScene({ floor_color: e.target.value, floor_material: "custom" })}
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs text-white uppercase"
+                />
+              </div>
             </div>
           </div>
         )}

@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Grid, PerspectiveCamera } from "@react-three/drei";
+import React, { useRef, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, Grid, PerspectiveCamera, TransformControls } from "@react-three/drei";
 import { useStore } from "../../store/useStore";
 import * as THREE from "three";
 import { Wall, RoomOpening, FurnitureItem } from "../../types";
 
 // Individual wall segment component in 3D
-function Wall3D({ start, end, thickness, height, color }: {
+function Wall3D({ start, end, thickness, height, color, finish }: {
   start: { x: number; y: number };
   end: { x: number; y: number };
   thickness: number;
   height: number;
   color?: string;
+  finish?: "Matte" | "Satin" | "Gloss";
 }) {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -28,23 +29,41 @@ function Wall3D({ start, end, thickness, height, color }: {
   // Calculate rotation angle around Y axis
   const angle = -Math.atan2(dy, dx);
 
+  const roughness = finish === "Gloss" ? 0.2 : finish === "Satin" ? 0.55 : 0.9;
+  const metalness = finish === "Gloss" ? 0.25 : finish === "Satin" ? 0.1 : 0.05;
+
   return (
     <mesh position={[cx, cy, cz]} rotation={[0, angle, 0]} castShadow receiveShadow>
       <boxGeometry args={[length, height, thickness]} />
       <meshStandardMaterial 
         color={color || "#F3F4F6"} 
-        roughness={0.7} 
-        metalness={0.1}
+        roughness={roughness} 
+        metalness={metalness}
       />
     </mesh>
   );
 }
 
-// Furniture model placeholder/mesh component in 3D
-function FurnitureItem3D({ item, isSelected }: {
-  item: any;
+// Transformable Furniture Component that integrates selection and 3D gizmos
+function TransformableFurnitureItem3D({
+  item,
+  isSelected,
+  selectItem,
+  updateItem,
+  pushHistory,
+  setOrbitEnabled,
+  transformMode
+}: {
+  item: FurnitureItem;
   isSelected: boolean;
+  selectItem: (id: string | null) => void;
+  updateItem: (id: string, updates: Partial<FurnitureItem>) => void;
+  pushHistory: () => void;
+  setOrbitEnabled: (enabled: boolean) => void;
+  transformMode: "translate" | "rotate";
 }) {
+  const groupRef = useRef<THREE.Group>(null);
+
   // Convert 2D rotation to radians
   const rotRad = (item.rotation * Math.PI) / 180;
 
@@ -60,8 +79,16 @@ function FurnitureItem3D({ item, isSelected }: {
     geometry = <sphereGeometry args={[item.width/2, 16, 16]} />;
   }
 
-  return (
-    <group position={[item.x, item.y, item.z]} rotation={[0, rotRad, 0]}>
+  const itemMesh = (
+    <group 
+      ref={groupRef}
+      position={[item.x, item.y, item.z]} 
+      rotation={[0, rotRad, 0]}
+      onClick={(e) => {
+        e.stopPropagation();
+        selectItem(item.id);
+      }}
+    >
       <mesh castShadow receiveShadow>
         {geometry}
         <meshStandardMaterial 
@@ -79,6 +106,36 @@ function FurnitureItem3D({ item, isSelected }: {
       )}
     </group>
   );
+
+  if (isSelected) {
+    return (
+      <group>
+        <TransformControls
+          object={groupRef}
+          mode={transformMode}
+          // Restrict translation vertical adjustments if desired, but general free movement is nice
+          onPointerDown={() => setOrbitEnabled(false)}
+          onPointerUp={() => {
+            setOrbitEnabled(true);
+            if (groupRef.current) {
+              const pos = groupRef.current.position;
+              const rot = groupRef.current.rotation;
+              updateItem(item.id, {
+                x: Number(pos.x.toFixed(3)),
+                y: Number(pos.y.toFixed(3)),
+                z: Number(pos.z.toFixed(3)),
+                rotation: Math.round((rot.y * 180) / Math.PI)
+              });
+            }
+            pushHistory();
+          }}
+        />
+        {itemMesh}
+      </group>
+    );
+  }
+
+  return itemMesh;
 }
 
 // Room Opening component in 3D
@@ -115,12 +172,76 @@ function Opening3D({ op, wall }: { op: any; wall: any }) {
 }
 
 export function Viewport3D() {
-  const { project, selectedItemId } = useStore();
+  const { project, selectedItemId, selectItem, updateItem, pushHistory } = useStore();
   const scene = project.scene;
+  const [orbitEnabled, setOrbitEnabled] = useState(true);
+  const [transformMode, setTransformMode] = useState<"translate" | "rotate">("translate");
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "SELECT" || document.activeElement?.tagName === "TEXTAREA") {
+        return;
+      }
+      if (e.key.toLowerCase() === "t") {
+        setTransformMode("translate");
+      } else if (e.key.toLowerCase() === "r") {
+        setTransformMode("rotate");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Determine floor style based on materials or custom hex colors
+  let floorColor = "#D1D5DB";
+  let floorRoughness = 0.8;
+  let floorMetalness = 0.1;
+
+  if (scene.floor_color) {
+    floorColor = scene.floor_color;
+  } else {
+    switch (scene.floor_material) {
+      case "light_oak_wood":
+        floorColor = "#E5C29B";
+        floorRoughness = 0.6;
+        break;
+      case "walnut_wood":
+        floorColor = "#5C4033";
+        floorRoughness = 0.55;
+        break;
+      case "concrete_gray":
+        floorColor = "#8A8A8A";
+        floorRoughness = 0.8;
+        break;
+      case "gray_carpet":
+        floorColor = "#A1A1AA";
+        floorRoughness = 0.95;
+        break;
+      case "marble_white":
+        floorColor = "#F3F4F6";
+        floorRoughness = 0.15;
+        floorMetalness = 0.3;
+        break;
+      case "dark_tiles":
+        floorColor = "#2D3748";
+        floorRoughness = 0.25;
+        floorMetalness = 0.2;
+        break;
+      default:
+        floorColor = "#D1D5DB";
+    }
+  }
 
   return (
-    <div className="w-full h-full bg-slate-950 relative">
-      <Canvas shadows>
+    <div 
+      className="w-full h-full bg-slate-950 relative"
+      onClick={() => {
+        // Deselect when clicking empty viewport overlay
+        selectItem(null);
+      }}
+    >
+      <Canvas shadows onClick={(e) => e.stopPropagation()}>
         <PerspectiveCamera makeDefault position={[5, 6, 8]} fov={50} />
         
         {/* Lights */}
@@ -159,8 +280,9 @@ export function Viewport3D() {
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
           <planeGeometry args={[50, 50]} />
           <meshStandardMaterial 
-            color={scene.floor_material === "light_oak_wood" ? "#E5C29B" : scene.floor_material === "concrete_gray" ? "#8A8A8A" : "#D1D5DB"} 
-            roughness={0.8}
+            color={floorColor} 
+            roughness={floorRoughness}
+            metalness={floorMetalness}
           />
         </mesh>
 
@@ -186,7 +308,8 @@ export function Viewport3D() {
             end={wall.end} 
             thickness={wall.thickness} 
             height={wall.height} 
-            color={scene.wall_color}
+            color={wall.color || scene.wall_color}
+            finish={scene.wall_finish}
           />
         ))}
 
@@ -198,19 +321,43 @@ export function Viewport3D() {
 
         {/* Furniture Items */}
         {scene.items.map((item: FurnitureItem) => (
-          <FurnitureItem3D 
+          <TransformableFurnitureItem3D 
             key={item.id} 
             item={item} 
             isSelected={selectedItemId === item.id} 
+            selectItem={selectItem}
+            updateItem={updateItem}
+            pushHistory={pushHistory}
+            setOrbitEnabled={setOrbitEnabled}
+            transformMode={transformMode}
           />
         ))}
 
-        <OrbitControls makeDefault minDistance={2} maxDistance={25} maxPolarAngle={Math.PI / 2 - 0.05} />
+        <OrbitControls makeDefault minDistance={2} maxDistance={25} maxPolarAngle={Math.PI / 2 - 0.05} enabled={orbitEnabled} />
       </Canvas>
 
-      {/* 3D Mode Overlays */}
-      <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-semibold text-white">
-        Orbit Mode
+      {/* 3D Mode Overlays with transform controls */}
+      <div 
+        className="absolute top-4 right-4 flex flex-row items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-800 shadow-2xl text-xs font-semibold text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="text-slate-400 mr-1">3D Controls:</span>
+        <button
+          onClick={() => setTransformMode("translate")}
+          className={`px-2 py-1 rounded transition ${transformMode === "translate" ? "bg-sky-500 text-slate-950 font-bold" : "bg-slate-900 hover:bg-slate-850 text-slate-350"}`}
+        >
+          Move (T)
+        </button>
+        <button
+          onClick={() => setTransformMode("rotate")}
+          className={`px-2 py-1 rounded transition ${transformMode === "rotate" ? "bg-sky-500 text-slate-950 font-bold" : "bg-slate-900 hover:bg-slate-850 text-slate-350"}`}
+        >
+          Rotate (R)
+        </button>
+        <div className="h-4 w-px bg-slate-800 mx-1" />
+        <span className="text-slate-400 font-normal">
+          {selectedItemId ? "Gizmo active" : "Select object to move"}
+        </span>
       </div>
     </div>
   );

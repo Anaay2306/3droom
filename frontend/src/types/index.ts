@@ -69,6 +69,7 @@ export interface ProjectScene {
   wall_color: string;
   wall_finish: "Matte" | "Gloss" | "Satin";
   floor_material: string;
+  floor_color?: string;
   walls: Wall[];
   items: FurnitureItem[];
   openings: RoomOpening[];

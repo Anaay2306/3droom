@@ -35,6 +35,7 @@ interface RoomCraftStore {
   // Project Actions
   setProject: (proj: ProjectState) => void;
   updateSettings: (settings: Partial<ProjectSettings>) => void;
+  updateScene: (updates: Partial<ProjectScene>) => void;
   
   // Selection
   selectItem: (id: string | null) => void;
@@ -344,6 +345,22 @@ export const useStore = create<RoomCraftStore>((set, get) => ({
       // Update historical snapshot
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push({ scene: { ...state.project.scene }, settings: updatedSettings });
+      
+      return {
+        project: updatedProject,
+        history: newHistory,
+        historyIndex: newHistory.length - 1
+      };
+    });
+  },
+
+  updateScene: (sceneUpdates) => {
+    set((state) => {
+      const updatedScene = { ...state.project.scene, ...sceneUpdates };
+      const updatedProject = { ...state.project, scene: updatedScene };
+      
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push({ scene: updatedScene, settings: state.project.settings });
       
       return {
         project: updatedProject,

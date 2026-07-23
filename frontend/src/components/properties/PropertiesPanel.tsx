@@ -15,7 +15,9 @@ export function PropertiesPanel() {
     deleteItem,
     deleteWall,
     deleteOpening,
-    duplicateItem
+    duplicateItem,
+    updateScene,
+    updateSettings
   } = useStore();
 
   const selectedItem = project.scene.items.find((i) => i.id === selectedItemId);
@@ -48,11 +50,140 @@ export function PropertiesPanel() {
     });
   };
 
+  // If no element is selected, display global room / scene settings
   if (!selectedItem && !selectedWall && !selectedOpening) {
     return (
-      <div className="w-full h-full bg-slate-950 border-l border-slate-800 p-4 text-slate-400 text-sm flex flex-col justify-center items-center text-center">
-        <p>No element selected</p>
-        <p className="text-xs text-slate-600 mt-1">Select an item on the canvas to configure properties</p>
+      <div className="w-full h-full bg-slate-950 border-l border-slate-800 flex flex-col text-slate-200">
+        <div className="p-4 border-b border-slate-800 flex flex-row justify-between items-center bg-slate-900/50">
+          <h3 className="font-bold text-sm tracking-wider uppercase text-sky-400">Room Settings</h3>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 select-none">
+          {/* Global Wall Paint */}
+          <div>
+            <label className="text-xs text-slate-500 font-semibold uppercase">Global Wall Color</label>
+            <div className="flex flex-row items-center gap-2 mt-1">
+              <input
+                type="color"
+                value={project.scene.wall_color || "#F3F4F6"}
+                onChange={(e) => updateScene({ wall_color: e.target.value })}
+                className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+              />
+              <input
+                type="text"
+                value={project.scene.wall_color || "#F3F4F6"}
+                onChange={(e) => updateScene({ wall_color: e.target.value })}
+                className="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white uppercase"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-slate-500 font-semibold uppercase">Wall Paint Finish</label>
+            <select
+              value={project.scene.wall_finish || "Matte"}
+              onChange={(e) => updateScene({ wall_finish: e.target.value as any })}
+              className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white"
+            >
+              <option value="Matte">Matte Paint</option>
+              <option value="Satin">Satin Paint</option>
+              <option value="Gloss">Gloss Paint</option>
+            </select>
+          </div>
+
+          {/* Global Floor Customization */}
+          <div className="border-t border-slate-900 pt-3">
+            <label className="text-xs text-slate-500 font-semibold uppercase">Floor Style</label>
+            <select
+              value={project.scene.floor_material || "light_oak_wood"}
+              onChange={(e) => {
+                const val = e.target.value;
+                updateScene({ floor_material: val, floor_color: undefined });
+              }}
+              className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white"
+            >
+              <option value="light_oak_wood">Light Oak Wood</option>
+              <option value="walnut_wood">Dark Walnut Wood</option>
+              <option value="concrete_gray">Concrete Gray</option>
+              <option value="gray_carpet">Soft Carpet</option>
+              <option value="marble_white">White Marble</option>
+              <option value="dark_tiles">Dark Slate Tiles</option>
+              <option value="custom">Custom Color Floor</option>
+            </select>
+          </div>
+
+          {project.scene.floor_material === "custom" && (
+            <div>
+              <label className="text-xs text-slate-500 font-semibold uppercase">Custom Floor Color</label>
+              <div className="flex flex-row items-center gap-2 mt-1">
+                <input
+                  type="color"
+                  value={project.scene.floor_color || "#D1D5DB"}
+                  onChange={(e) => updateScene({ floor_color: e.target.value })}
+                  className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={project.scene.floor_color || ""}
+                  onChange={(e) => updateScene({ floor_color: e.target.value })}
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white uppercase font-mono"
+                  placeholder="#D1D5DB"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Project settings and defaults */}
+          <div className="border-t border-slate-900 pt-3 space-y-3">
+            <label className="text-xs text-slate-500 font-semibold uppercase">Grid & Editor Options</label>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400">Snap to Grid</span>
+              <input
+                type="checkbox"
+                checked={project.settings.gridSnap}
+                onChange={(e) => updateSettings({ gridSnap: e.target.checked })}
+                className="w-4 h-4 rounded text-sky-500 accent-sky-500 focus:ring-0 cursor-pointer"
+              />
+            </div>
+
+            {project.settings.gridSnap && (
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase">Grid Size (m)</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  value={project.settings.gridSize}
+                  onChange={(e) => updateSettings({ gridSize: parseFloat(e.target.value) || 0.1 })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs text-white mt-1 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase">Default Wall Thickness</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={project.settings.wallThickness}
+                  onChange={(e) => updateSettings({ wallThickness: parseFloat(e.target.value) || 0.2 })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white mt-1 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase">Default Wall Height</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={project.settings.wallHeight}
+                  onChange={(e) => updateSettings({ wallHeight: parseFloat(e.target.value) || 2.8 })}
+                  className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white mt-1 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -250,6 +381,33 @@ export function PropertiesPanel() {
                 onChange={(e) => updateWall(selectedWall.id, { height: Math.max(0.5, parseFloat(e.target.value) || 2.4) })}
                 className="w-full mt-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-sky-500"
               />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-500 font-semibold uppercase">Individual Accent Color</label>
+              <div className="flex flex-row items-center gap-2 mt-1">
+                <input
+                  type="color"
+                  value={selectedWall.color || project.scene.wall_color || "#F3F4F6"}
+                  onChange={(e) => updateWall(selectedWall.id, { color: e.target.value })}
+                  className="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={selectedWall.color || ""}
+                  placeholder="Inherit Global Paint"
+                  onChange={(e) => updateWall(selectedWall.id, { color: e.target.value || undefined })}
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white"
+                />
+                {selectedWall.color && (
+                  <button
+                    onClick={() => updateWall(selectedWall.id, { color: undefined })}
+                    className="text-xs text-amber-500 hover:text-amber-400"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="border-t border-slate-900 pt-4">
