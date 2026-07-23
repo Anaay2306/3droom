@@ -68,12 +68,93 @@ interface RoomCraftStore {
 }
 
 const initialScene = {
-  wall_color: "#F3F4F6",
+  wall_color: "#F2EFE9",
   wall_finish: "Matte" as const,
   floor_material: "light_oak_wood",
-  walls: [] as Wall[],
-  items: [] as FurnitureItem[],
-  openings: [] as RoomOpening[],
+  walls: [
+    { id: "wall-1", start: { x: -3.0, y: -2.5 }, end: { x: 3.0, y: -2.5 }, thickness: 0.2, height: 2.8 },
+    { id: "wall-2", start: { x: 3.0, y: -2.5 }, end: { x: 3.0, y: 2.5 }, thickness: 0.2, height: 2.8 },
+    { id: "wall-3", start: { x: 3.0, y: 2.5 }, end: { x: -3.0, y: 2.5 }, thickness: 0.2, height: 2.8 },
+    { id: "wall-4", start: { x: -3.0, y: 2.5 }, end: { x: -3.0, y: -2.5 }, thickness: 0.2, height: 2.8 }
+  ] as Wall[],
+  items: [
+    {
+      id: "item-bed",
+      catalogId: "king_size_bed",
+      name: "King Size Bed",
+      category: "bedroom",
+      x: -1.2,
+      y: 0.0,
+      z: -0.8,
+      rotation: 0,
+      width: 1.9,
+      height: 1.1,
+      depth: 2.1,
+      color: "#E5E7EB",
+      material: "fabric",
+      price: 899,
+      locked: false,
+      visible: true
+    },
+    {
+      id: "item-nightstand",
+      catalogId: "oak_nightstand",
+      name: "Oak Nightstand",
+      category: "bedroom",
+      x: -2.4,
+      y: 0.0,
+      z: -2.0,
+      rotation: 0,
+      width: 0.5,
+      height: 0.5,
+      depth: 0.4,
+      color: "#D1A377",
+      material: "wood",
+      price: 120,
+      locked: false,
+      visible: true
+    },
+    {
+      id: "item-sofa",
+      catalogId: "3-seater_comfort_sofa",
+      name: "3-Seater Comfort Sofa",
+      category: "living_room",
+      x: 1.8,
+      y: 0.0,
+      z: 1.2,
+      rotation: 180,
+      width: 2.2,
+      height: 0.85,
+      depth: 0.95,
+      color: "#4B5563",
+      material: "fabric",
+      price: 750,
+      locked: false,
+      visible: true
+    },
+    {
+      id: "item-table",
+      catalogId: "minimalist_coffee_table",
+      name: "Minimalist Coffee Table",
+      category: "living_room",
+      x: 1.8,
+      y: 0.0,
+      z: 0.0,
+      rotation: 0,
+      width: 1.1,
+      height: 0.4,
+      depth: 0.6,
+      color: "#D1A377",
+      material: "wood",
+      price: 150,
+      locked: false,
+      visible: true
+    }
+  ] as FurnitureItem[],
+  openings: [
+    { id: "door-1", type: "door", wallId: "wall-3", distance: 1.5, width: 0.9, height: 2.1, style: "single" },
+    { id: "window-1", type: "window", wallId: "wall-1", distance: 3.0, width: 1.2, height: 1.4, style: "sliding" }
+  ] as RoomOpening[],
   lights: [
     { id: "ambient", type: "ambient", color: "#FFFFFF", intensity: 0.7, position: { x: 0, y: 3, z: 0 }, castShadows: false },
     { id: "sunlight", type: "directional", color: "#FFFBEB", intensity: 1.0, position: { x: 5, y: 10, z: 5 }, castShadows: true }

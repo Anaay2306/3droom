@@ -63,6 +63,9 @@ function TransformableFurnitureItem3D({
   transformMode: "translate" | "rotate";
 }) {
   const groupRef = useRef<THREE.Group>(null);
+  const { project } = useStore();
+  const [isPointerDragging, setIsPointerDragging] = useState(false);
+  const dragOffset = useRef(new THREE.Vector3());
 
   // Convert 2D rotation to radians
   const rotRad = (item.rotation * Math.PI) / 180;
@@ -79,15 +82,68 @@ function TransformableFurnitureItem3D({
     geometry = <sphereGeometry args={[item.width/2, 16, 16]} />;
   }
 
+  // Pointer dragging handlers
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation();
+    if (e.button !== 0) return; // Only drag with left click
+    
+    selectItem(item.id);
+    setIsPointerDragging(true);
+    setOrbitEnabled(false);
+
+    // Get cursor intersection on floor plane at item height
+    const intersectionPoint = new THREE.Vector3();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -item.y);
+    e.ray.intersectPlane(plane, intersectionPoint);
+    
+    // Calculate offset from item center
+    dragOffset.current.copy(intersectionPoint).sub(new THREE.Vector3(item.x, item.y, item.z));
+    e.target.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: any) => {
+    if (!isPointerDragging) return;
+    e.stopPropagation();
+
+    const intersectionPoint = new THREE.Vector3();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -item.y);
+    e.ray.intersectPlane(plane, intersectionPoint);
+
+    let targetX = intersectionPoint.x - dragOffset.current.x;
+    let targetZ = intersectionPoint.z - dragOffset.current.z;
+
+    const gridSnap = project.settings.gridSnap;
+    const gridSize = project.settings.gridSize;
+
+    if (gridSnap) {
+      targetX = Math.round(targetX / gridSize) * gridSize;
+      targetZ = Math.round(targetZ / gridSize) * gridSize;
+    }
+
+    updateItem(item.id, {
+      x: Number(targetX.toFixed(3)),
+      z: Number(targetZ.toFixed(3))
+    });
+  };
+
+  const handlePointerUp = (e: any) => {
+    if (!isPointerDragging) return;
+    e.stopPropagation();
+    setIsPointerDragging(false);
+    setOrbitEnabled(true);
+    e.target.releasePointerCapture(e.pointerId);
+    pushHistory();
+  };
+
   const itemMesh = (
     <group 
       ref={groupRef}
       position={[item.x, item.y, item.z]} 
       rotation={[0, rotRad, 0]}
-      onClick={(e) => {
-        e.stopPropagation();
-        selectItem(item.id);
-      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      className="cursor-move"
     >
       <mesh castShadow receiveShadow>
         {geometry}
@@ -107,13 +163,12 @@ function TransformableFurnitureItem3D({
     </group>
   );
 
-  if (isSelected) {
+  if (isSelected && !isPointerDragging) {
     return (
       <group>
         <TransformControls
           object={groupRef}
           mode={transformMode}
-          // Restrict translation vertical adjustments if desired, but general free movement is nice
           onPointerDown={() => setOrbitEnabled(false)}
           onPointerUp={() => {
             setOrbitEnabled(true);

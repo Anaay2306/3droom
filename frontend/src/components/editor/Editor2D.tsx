@@ -214,14 +214,26 @@ export function Editor2D() {
           const s = worldToScreen(wall.start.x, wall.start.y);
           const e = worldToScreen(wall.end.x, wall.end.y);
           const isSelected = selectedWallId === wall.id;
+          const wallColor = wall.color || project.scene.wall_color || "#E5E7EB";
           return (
             <g key={wall.id} onClick={(ev) => { ev.stopPropagation(); selectWall(wall.id); }}>
+              {/* Outer Selection Highlight Outline */}
+              {isSelected && (
+                <line 
+                  x1={s.x} y1={s.y} x2={e.x} y2={e.y} 
+                  stroke="#0ea5e9" 
+                  strokeWidth={wall.thickness * 50 * zoom + 6} 
+                  strokeLinecap="round"
+                  opacity={0.65}
+                />
+              )}
+              {/* Main Wall Solid Line */}
               <line 
                 x1={s.x} y1={s.y} x2={e.x} y2={e.y} 
-                stroke={isSelected ? "#0ea5e9" : "#E5E7EB"} 
+                stroke={wallColor} 
                 strokeWidth={wall.thickness * 50 * zoom} 
                 strokeLinecap="round"
-                className="transition-colors duration-150 hover:stroke-sky-400 cursor-pointer"
+                className="transition-colors duration-150 hover:opacity-80 cursor-pointer"
               />
               {/* Length label */}
               <text 
@@ -230,7 +242,7 @@ export function Editor2D() {
                 fill="#9CA3AF"
                 fontSize="11" 
                 textAnchor="middle"
-                className="bg-slate-900 pointer-events-none"
+                className="bg-slate-900 pointer-events-none select-none"
               >
                 {Math.sqrt(Math.pow(wall.end.x - wall.start.x, 2) + Math.pow(wall.end.y - wall.start.y, 2)).toFixed(2)}m
               </text>
